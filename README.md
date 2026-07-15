@@ -5,7 +5,9 @@ sits and breathes on a seamless video loop; you pick a session length,
 press Begin, and sit with them.
 
 Static PWA — no backend, no accounts, no build step. Installed on iPhone
-via Safari's Add to Home Screen. Hosted on GitHub Pages.
+via Safari's Add to Home Screen.
+
+**Live:** https://alexdoster.github.io/quiet-company/
 
 ## Structure
 
@@ -26,6 +28,18 @@ python -m http.server 8000
 Then open http://localhost:8000. (Opening `index.html` directly via
 `file://` also works for a quick look — the service worker just skips
 registering.)
+
+## Versioning
+
+Two version tracks, both manual:
+
+- **Code:** plain git history on `main`; every push to GitHub redeploys
+  Pages automatically within a minute or two.
+- **Installed clients:** the `CACHE` string at the top of `sw.js`
+  (`quiet-company-vN`). The service worker serves everything cache-first,
+  so an installed phone keeps running the old version until that string
+  changes — bump it in any change you want deployed to existing installs,
+  and the next launch fetches the new files and drops the old cache.
 
 ## Adding a scene
 
