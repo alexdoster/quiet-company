@@ -369,6 +369,45 @@ body {
   gap: 12px;
 }
 
+.soundtrack {
+  margin-bottom: 18px;
+  transition: opacity 0.4s var(--ease), max-height 0.4s var(--ease);
+}
+
+.soundtrack.hidden {
+  display: none;
+}
+
+.prompt-sub {
+  margin: 0 0 10px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+}
+
+.music-now {
+  margin: 2px 0 0;
+  min-height: 1.2em;
+  font-size: 13px;
+  font-weight: 300;
+  color: var(--ink-dim);
+}
+
+.music-credit {
+  margin: 4px 0 0;
+  min-height: 1.2em;
+  font-size: 11px;
+  color: var(--ink-faint);
+  opacity: 0;
+  transition: opacity 0.3s var(--ease);
+}
+
+.music-credit.visible {
+  opacity: 1;
+}
+
 /* ---------- Session panel ---------- */
 
 .countdown {

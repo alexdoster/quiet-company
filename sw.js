@@ -1,6 +1,6 @@
 'use strict';
 
-const CACHE = 'quiet-company-v5';
+const CACHE = 'quiet-company-v6';
 
 const PRECACHE = [
   './',
@@ -70,8 +70,18 @@ self.addEventListener('fetch', (event) => {
 
 async function rangeResponse(request) {
   const cache = await caches.open(CACHE);
-  const hit = await cache.match(request.url);
-  if (!hit) return fetch(request);
+  let hit = await cache.match(request.url);
+
+  if (!hit) {
+    // Nothing cached yet. Media elements often send a Range header even
+    // on the very first request (audio soundtracks, not just video) —
+    // fetch the full resource once (plain GET, no Range) so it lands in
+    // cache for every request after this one, not just this one.
+    const full = await fetch(request.url);
+    if (!full.ok) return fetch(request);
+    cache.put(request.url, full.clone());
+    hit = full;
+  }
 
   const buffer = await hit.arrayBuffer();
   const total = buffer.byteLength;

@@ -5,7 +5,7 @@
 // Bump alongside CACHE in sw.js on every deploy — this is the only
 // user-visible confirmation that a phone has picked up the latest build
 // (shown small, bottom-right, home screen only).
-const APP_VERSION = 5;
+const APP_VERSION = 6;
 
 const SCENES = [
   { id: 'monk', label: 'Temple', src: 'assets/video/monk-temple-breathing-v1.mp4' },
@@ -35,6 +35,44 @@ const AMBIENCE = {
   },
 };
 
+// Optional full-track soundtrack, currently yoga only. Unlike AMBIENCE
+// above (texture, crossfade-looped), these are real compositions with
+// musical structure — played as whole tracks, not loop-scheduled.
+// Royalty-free (CC BY 4.0, Scott Buckley — attribution required, see
+// assets/audio/CREDITS.md), picked as mood-equivalents for the named
+// copyrighted artists Alex referenced, not copies of them; those can't
+// legally be embedded in a public repo. Two tracks per mood so there's
+// a real choice, not just one pick per category.
+const MUSIC = {
+  yoga: [
+    {
+      id: 'restorative',
+      label: 'Restorative',
+      tracks: [
+        { label: 'Penumbra', src: 'assets/audio/yoga-restorative-penumbra.mp3' },
+        { label: 'Meanwhile', src: 'assets/audio/yoga-restorative-meanwhile.mp3' },
+      ],
+    },
+    {
+      id: 'flow',
+      label: 'Flow',
+      tracks: [
+        { label: 'Amberlight', src: 'assets/audio/yoga-flow-amberlight.mp3' },
+        { label: 'Echoes Of Home', src: 'assets/audio/yoga-flow-echoes-of-home.mp3' },
+      ],
+    },
+    {
+      id: 'vinyasa',
+      label: 'Vinyasa',
+      tracks: [
+        { label: 'Born Of The Sky', src: 'assets/audio/yoga-vinyasa-born-of-the-sky.mp3' },
+        { label: 'Convergence', src: 'assets/audio/yoga-vinyasa-convergence.mp3' },
+      ],
+    },
+  ],
+};
+const MUSIC_VOLUME = 0.55;
+
 const CUSTOM_DEFAULT = 20;
 const CUSTOM_MIN = 1;
 const CUSTOM_MAX = 120;
@@ -61,6 +99,10 @@ const customValue = $('#custom-value');
 const countdownEl = $('#countdown');
 const pauseBtn = $('#pause');
 const muteBtn = $('#mute');
+const soundtrackEl = $('#soundtrack');
+const musicPillsEl = $('#music-pills');
+const musicNowEl = $('#music-now');
+const musicCreditEl = $('.music-credit');
 
 /* ---------- Persistence ---------- */
 
@@ -257,6 +299,8 @@ function startSession(minutes) {
   acquireWakeLock();
   chimeStart();
   Ambience.start(SCENES[sceneIndex].id);
+  const track = MUSIC[SCENES[sceneIndex].id] && currentMusicTrack();
+  if (track) startMusic(track.src);
 }
 
 function togglePause() {
@@ -265,12 +309,14 @@ function togglePause() {
     pauseBtn.textContent = 'Resume';
     setUIState('paused');
     Ambience.duck();
+    musicAudio?.pause();
   } else if (uiState === 'paused') {
     timer.endAt = Date.now() + timer.remainingMs;
     pauseBtn.textContent = 'Pause';
     setUIState('running');
     acquireWakeLock();
     Ambience.unduck();
+    musicAudio?.play().catch(() => {});
   }
 }
 
@@ -278,6 +324,7 @@ function endSession() {
   releaseWakeLock();
   setUIState('browse');
   Ambience.stop();
+  stopMusic();
 }
 
 function completeSession() {
@@ -285,6 +332,7 @@ function completeSession() {
   setUIState('complete');
   chimeEnd();
   Ambience.stop();
+  stopMusic();
 }
 
 /* Auto-hide: during a running session the controls fade after a few
@@ -339,10 +387,54 @@ function nudgeCustom(delta) {
 $('#custom-minus').addEventListener('click', () => nudgeCustom(-1));
 $('#custom-plus').addEventListener('click', () => nudgeCustom(1));
 
+/* ---------- Soundtrack picker (yoga only, for now) ----------
+   One tap picks a mood category (its first track); tapping the
+   already-selected category again cycles to the alternate track in
+   that mood — keeps the visible control to 4 pills (same footprint as
+   the duration row) while still offering a real choice per category. */
+
+let musicCategory = store.get('musicCategory', 'none');
+let musicTrackIndex = store.get('musicTrackIndex', 0);
+
+function currentMusicTrack() {
+  const group = MUSIC.yoga.find((c) => c.id === musicCategory);
+  return group ? group.tracks[musicTrackIndex % group.tracks.length] : null;
+}
+
+function renderSoundtrack() {
+  const hasMusic = !!MUSIC[SCENES[sceneIndex].id];
+  soundtrackEl.classList.toggle('hidden', !hasMusic);
+  if (!hasMusic) return;
+
+  for (const btn of musicPillsEl.children) {
+    btn.classList.toggle('selected', btn.dataset.cat === musicCategory);
+  }
+  const track = currentMusicTrack();
+  musicNowEl.textContent = track ? track.label : '';
+  musicCreditEl.classList.toggle('visible', !!track);
+}
+
+musicPillsEl.addEventListener('click', (event) => {
+  const btn = event.target.closest('.music-cat');
+  if (!btn) return;
+  const cat = btn.dataset.cat;
+  if (cat === musicCategory && cat !== 'none') {
+    const group = MUSIC.yoga.find((c) => c.id === cat);
+    musicTrackIndex = (musicTrackIndex + 1) % group.tracks.length;
+  } else {
+    musicCategory = cat;
+    musicTrackIndex = 0;
+  }
+  store.set('musicCategory', musicCategory);
+  store.set('musicTrackIndex', musicTrackIndex);
+  renderSoundtrack();
+});
+
 /* ---------- Flow buttons ---------- */
 
 $('#choose').addEventListener('click', () => {
   ensureAudio(); // user gesture — safe moment to unlock WebAudio on iOS
+  renderSoundtrack();
   setUIState('setup');
 });
 
@@ -412,6 +504,7 @@ function setMuted(next) {
   if (masterGain) {
     masterGain.gain.setTargetAtTime(muted ? 0 : 1, audioCtx.currentTime, 0.15);
   }
+  if (musicAudio) musicAudio.volume = muted ? 0 : MUSIC_VOLUME;
 }
 
 muteBtn.addEventListener('click', () => {
@@ -448,6 +541,29 @@ function chimeEnd() {
   ensureAudio();
   bell(0, 523.25, 0.14, 4); // C5, struck twice, slow
   bell(1.6, 523.25, 0.14, 5);
+}
+
+/* ---------- Soundtrack playback ----------
+   Full compositions, not texture — played as whole tracks via a plain
+   <audio loop> element rather than AmbienceEngine's crossfade scheduler,
+   which is built for noise/texture and would clash against a track's
+   actual musical structure at the seam. */
+
+let musicAudio = null;
+
+function startMusic(src) {
+  stopMusic();
+  musicAudio = new Audio(src);
+  musicAudio.loop = true;
+  musicAudio.volume = muted ? 0 : MUSIC_VOLUME;
+  musicAudio.play().catch(() => {});
+}
+
+function stopMusic() {
+  if (!musicAudio) return;
+  musicAudio.pause();
+  musicAudio.src = '';
+  musicAudio = null;
 }
 
 /* ---------- Ambience (recorded loops + one synthesized drone) ----------
