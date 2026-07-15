@@ -5,7 +5,7 @@
 // Bump alongside CACHE in sw.js on every deploy — this is the only
 // user-visible confirmation that a phone has picked up the latest build
 // (shown small, bottom-right, home screen only).
-const APP_VERSION = 9;
+const APP_VERSION = 10;
 
 const SCENES = [
   { id: 'monk', label: 'Temple', src: 'assets/video/monk-temple-breathing-v1.mp4' },
@@ -500,6 +500,7 @@ function setMuted(next) {
   muted = next;
   store.set('muted', muted);
   muteBtn.classList.toggle('muted', muted);
+  muteBtn.textContent = muted ? 'Muted' : 'Sound';
   muteBtn.setAttribute('aria-pressed', String(muted));
   if (masterGain) {
     masterGain.gain.setTargetAtTime(muted ? 0 : 1, audioCtx.currentTime, 0.15);
@@ -719,6 +720,7 @@ renderDurations();
 setScene(sceneIndex);
 setUIState('browse');
 muteBtn.classList.toggle('muted', muted);
+muteBtn.textContent = muted ? 'Muted' : 'Sound';
 muteBtn.setAttribute('aria-pressed', String(muted));
 $('#version').textContent = 'v' + APP_VERSION;
 

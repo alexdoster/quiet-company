@@ -93,15 +93,14 @@ body {
 }
 
 .top {
-  display: grid;
-  grid-template-columns: 44px 1fr 44px;
+  display: flex;
+  justify-content: space-between;
   align-items: center;
   transition: opacity 0.9s var(--ease);
 }
 
 .brand {
   margin: 0;
-  justify-self: center;
   font-size: 12px;
   font-weight: 600;
   letter-spacing: 0.24em;
@@ -109,31 +108,14 @@ body {
   color: var(--ink-dim);
 }
 
-.icon-btn {
-  justify-self: end;
-  width: 44px;
-  height: 44px;
-  padding: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+.mute-toggle {
+  padding: 8px 16px;
+  font-size: 12px;
+  letter-spacing: 0.06em;
 }
 
-.icon-btn .mute-x {
-  opacity: 0;
-  transition: opacity 0.25s var(--ease);
-}
-
-.icon-btn .wave {
-  transition: opacity 0.25s var(--ease);
-}
-
-.icon-btn.muted .wave {
-  opacity: 0;
-}
-
-.icon-btn.muted .mute-x {
-  opacity: 1;
+.mute-toggle.muted {
+  color: var(--ink-faint);
 }
 
 /* ---------- Carousel navigation (browse state only) ---------- */
