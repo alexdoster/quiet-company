@@ -183,16 +183,16 @@ body {
   position: fixed;
   right: calc(env(safe-area-inset-right) + 10px);
   bottom: calc(env(safe-area-inset-bottom) + 10px);
-  font-size: 11px;
+  font-size: 12px;
   font-variant-numeric: tabular-nums;
-  color: var(--ink-faint);
+  color: var(--ink-dim);
   opacity: 0;
   pointer-events: none;
   transition: opacity var(--fade) var(--ease);
 }
 
 .state-browse .version {
-  opacity: 0.55;
+  opacity: 0.8;
 }
 
 .dots {
