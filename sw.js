@@ -1,7 +1,16 @@
 'use strict';
 
-const CACHE = 'quiet-company-v7';
+const CACHE = 'quiet-company-v8';
 
+// Small, reliable app-shell files only. Video/audio used to be listed
+// here too, but eagerly downloading tens of MB during install is exactly
+// the kind of bulk fetch Safari on iOS is flaky about completing — if it
+// ever fails or times out, cache.addAll() rejects, the whole install
+// step fails, and the new SW version never activates at all (silently,
+// forever, surviving even a phone reboot, since nothing about a reboot
+// fixes a failing network call the SW will just retry and fail again).
+// Media now caches lazily on first real use via the fetch handler below,
+// same as the yoga soundtrack already worked this way from the start.
 const PRECACHE = [
   './',
   './index.html',
@@ -11,14 +20,6 @@ const PRECACHE = [
   './icons/icon-192.png',
   './icons/icon-512.png',
   './icons/apple-touch-icon.png',
-  './assets/video/monk-temple-breathing-v1.mp4',
-  './assets/video/yoga-studio-breathing-v1.mp4',
-  './assets/video/hammock-sleep-v1.mp4',
-  './assets/video/horizon-gaze-v1.mp4',
-  './assets/audio/temple-bowl.mp3',
-  './assets/audio/horizon-waves.mp3',
-  './assets/audio/hammock-cicadas.mp3',
-  './assets/audio/hammock-campfire.mp3',
 ];
 
 self.addEventListener('install', (event) => {
@@ -27,6 +28,10 @@ self.addEventListener('install', (event) => {
       .open(CACHE)
       .then((cache) => cache.addAll(PRECACHE))
       .then(() => self.skipWaiting())
+      .catch((err) => {
+        console.error('SW install failed:', err);
+        throw err; // still fail install — a broken SW shouldn't activate
+      })
   );
 });
 
