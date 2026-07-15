@@ -1,6 +1,6 @@
 'use strict';
 
-const CACHE = 'quiet-company-v3';
+const CACHE = 'quiet-company-v4';
 
 const PRECACHE = [
   './',
@@ -15,6 +15,10 @@ const PRECACHE = [
   './assets/video/yoga-studio-breathing-v1.mp4',
   './assets/video/hammock-sleep-v1.mp4',
   './assets/video/horizon-gaze-v1.mp4',
+  './assets/audio/temple-bowl.mp3',
+  './assets/audio/horizon-waves.mp3',
+  './assets/audio/hammock-cicadas.mp3',
+  './assets/audio/hammock-campfire.mp3',
 ];
 
 self.addEventListener('install', (event) => {

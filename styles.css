@@ -93,19 +93,47 @@ body {
 }
 
 .top {
-  display: flex;
-  justify-content: center;
+  display: grid;
+  grid-template-columns: 44px 1fr 44px;
   align-items: center;
   transition: opacity 0.9s var(--ease);
 }
 
 .brand {
   margin: 0;
+  justify-self: center;
   font-size: 12px;
   font-weight: 600;
   letter-spacing: 0.24em;
   text-transform: uppercase;
   color: var(--ink-dim);
+}
+
+.icon-btn {
+  justify-self: end;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.icon-btn .slash {
+  opacity: 0;
+  transition: opacity 0.25s var(--ease);
+}
+
+.icon-btn .wave {
+  transition: opacity 0.25s var(--ease);
+}
+
+.icon-btn.muted .wave {
+  opacity: 0;
+}
+
+.icon-btn.muted .slash {
+  opacity: 1;
 }
 
 /* ---------- Carousel navigation (browse state only) ---------- */

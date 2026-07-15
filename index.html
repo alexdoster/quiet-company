@@ -23,7 +23,16 @@
 
   <main id="ui" class="state-browse">
     <header class="top">
+      <span class="spacer" aria-hidden="true"></span>
       <h1 class="brand">Quiet Company</h1>
+      <button id="mute" class="pill icon-btn" aria-label="Mute ambient sound" aria-pressed="false">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M4 9v6h4l5 5V4L8 9H4z"/>
+          <path class="wave" d="M16.5 8.5a5 5 0 0 1 0 7"/>
+          <path class="wave" d="M19 6a9 9 0 0 1 0 12"/>
+          <line class="slash" x1="3" y1="3" x2="21" y2="21"/>
+        </svg>
+      </button>
     </header>
 
     <button id="nav-prev" class="nav-arrow prev" aria-label="Previous scene">&#8249;</button>

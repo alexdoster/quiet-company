@@ -10,6 +10,26 @@ const SCENES = [
   { id: 'horizon', label: 'Horizon', src: 'assets/video/horizon-gaze-v1.mp4' },
 ];
 
+// Ambient beds per scene, played only during a session (not while browsing).
+// Real recordings, not born-loopable — AmbienceEngine crossfades overlapping
+// copies at playback time rather than needing the files hand-edited.
+// See assets/audio/CREDITS.md for sourcing (all CC0, BigSoundBank).
+const AMBIENCE = {
+  monk: {
+    hum: true, // synthesized wordless drone, layered under the bowl
+    layers: [{ src: 'assets/audio/temple-bowl.mp3', gain: 0.5, crossfade: 3 }],
+  },
+  hammock: {
+    layers: [
+      { src: 'assets/audio/hammock-cicadas.mp3', gain: 0.4, crossfade: 2.5 },
+      { src: 'assets/audio/hammock-campfire.mp3', gain: 0.3, crossfade: 2.5 },
+    ],
+  },
+  horizon: {
+    layers: [{ src: 'assets/audio/horizon-waves.mp3', gain: 0.55, crossfade: 2.5 }],
+  },
+};
+
 const CUSTOM_DEFAULT = 20;
 const CUSTOM_MIN = 1;
 const CUSTOM_MAX = 120;
@@ -35,6 +55,7 @@ const customRow = $('#custom-row');
 const customValue = $('#custom-value');
 const countdownEl = $('#countdown');
 const pauseBtn = $('#pause');
+const muteBtn = $('#mute');
 
 /* ---------- Persistence ---------- */
 
@@ -230,6 +251,7 @@ function startSession(minutes) {
   playActiveVideo();
   acquireWakeLock();
   chimeStart();
+  Ambience.start(SCENES[sceneIndex].id);
 }
 
 function togglePause() {
@@ -237,23 +259,27 @@ function togglePause() {
     timer.remainingMs = Math.max(0, timer.endAt - Date.now());
     pauseBtn.textContent = 'Resume';
     setUIState('paused');
+    Ambience.duck();
   } else if (uiState === 'paused') {
     timer.endAt = Date.now() + timer.remainingMs;
     pauseBtn.textContent = 'Pause';
     setUIState('running');
     acquireWakeLock();
+    Ambience.unduck();
   }
 }
 
 function endSession() {
   releaseWakeLock();
   setUIState('browse');
+  Ambience.stop();
 }
 
 function completeSession() {
   releaseWakeLock();
   setUIState('complete');
   chimeEnd();
+  Ambience.stop();
 }
 
 /* Auto-hide: during a running session the controls fade after a few
@@ -346,6 +372,7 @@ function releaseWakeLock() {
 document.addEventListener('visibilitychange', () => {
   if (document.visibilityState !== 'visible') return;
   playActiveVideo();
+  if (audioCtx?.state === 'suspended') audioCtx.resume();
   if (uiState === 'running') {
     acquireWakeLock();
     timer.remainingMs = Math.max(0, timer.endAt - Date.now());
@@ -354,20 +381,44 @@ document.addEventListener('visibilitychange', () => {
   }
 });
 
-/* ---------- Chimes (synthesized — no audio asset, no licensing) ---------- */
+/* ---------- Audio buses ---------- */
 
 let audioCtx = null;
+let masterGain = null; // everything (bells + ambience) routes through here for mute
+let muted = store.get('muted', false);
 
 function ensureAudio() {
   const Ctx = window.AudioContext || window.webkitAudioContext;
   if (!Ctx) return;
   if (!audioCtx) audioCtx = new Ctx();
   if (audioCtx.state === 'suspended') audioCtx.resume();
+  if (!masterGain) {
+    masterGain = audioCtx.createGain();
+    masterGain.gain.value = muted ? 0 : 1;
+    masterGain.connect(audioCtx.destination);
+  }
 }
+
+function setMuted(next) {
+  muted = next;
+  store.set('muted', muted);
+  muteBtn.classList.toggle('muted', muted);
+  muteBtn.setAttribute('aria-pressed', String(muted));
+  if (masterGain) {
+    masterGain.gain.setTargetAtTime(muted ? 0 : 1, audioCtx.currentTime, 0.15);
+  }
+}
+
+muteBtn.addEventListener('click', () => {
+  ensureAudio();
+  setMuted(!muted);
+});
+
+/* ---------- Chimes (synthesized — no audio asset, no licensing) ---------- */
 
 // Inharmonic partials make a struck-bell timbre instead of a pure beep.
 function bell(delaySeconds, frequency, peak, decaySeconds) {
-  if (!audioCtx) return;
+  if (!audioCtx || !masterGain) return;
   const t = audioCtx.currentTime + delaySeconds;
   for (const [ratio, amount] of [[1, 1], [2.76, 0.35], [5.4, 0.1]]) {
     const osc = audioCtx.createOscillator();
@@ -377,7 +428,7 @@ function bell(delaySeconds, frequency, peak, decaySeconds) {
     gain.gain.setValueAtTime(0.0001, t);
     gain.gain.exponentialRampToValueAtTime(peak * amount, t + 0.02);
     gain.gain.exponentialRampToValueAtTime(0.0001, t + decaySeconds);
-    osc.connect(gain).connect(audioCtx.destination);
+    osc.connect(gain).connect(masterGain);
     osc.start(t);
     osc.stop(t + decaySeconds + 0.1);
   }
@@ -394,11 +445,160 @@ function chimeEnd() {
   bell(1.6, 523.25, 0.14, 5);
 }
 
+/* ---------- Ambience (recorded loops + one synthesized drone) ----------
+   Real-world recordings aren't born loopable, so each layer schedules
+   overlapping copies of itself with a crossfaded gain envelope at the
+   seam — the chaotic texture (waves, fire, insects) masks the overlap.
+   A short lookahead (scheduled via setTimeout but timed precisely via
+   AudioContext currentTime) keeps the loop gap-free despite JS timer
+   jitter. See assets/audio/CREDITS.md for track sourcing. */
+
+const LOOKAHEAD = 1; // seconds before a loop boundary to schedule the next copy
+const bufferCache = new Map();
+let ambienceBus = null; // ducked independently of masterGain (pause vs. mute)
+let activeLayers = [];
+let activeHum = null;
+let ambienceToken = 0; // invalidates in-flight loads from a scene switched away from
+
+function loadBuffer(src) {
+  if (bufferCache.has(src)) return bufferCache.get(src);
+  const promise = fetch(src)
+    .then((res) => res.arrayBuffer())
+    .then((data) => audioCtx.decodeAudioData(data));
+  bufferCache.set(src, promise);
+  return promise;
+}
+
+function startLoopLayer(buffer, gainValue, crossfade) {
+  const layerGain = audioCtx.createGain();
+  layerGain.gain.value = gainValue;
+  layerGain.connect(ambienceBus);
+
+  let stopped = false;
+  const timers = [];
+  const dur = buffer.duration;
+  const fade = Math.min(crossfade, dur / 2);
+
+  function scheduleAt(startTime) {
+    if (stopped) return;
+    const source = audioCtx.createBufferSource();
+    source.buffer = buffer;
+    const envelope = audioCtx.createGain();
+    envelope.gain.setValueAtTime(0, startTime);
+    envelope.gain.linearRampToValueAtTime(1, startTime + fade);
+    envelope.gain.setValueAtTime(1, startTime + dur - fade);
+    envelope.gain.linearRampToValueAtTime(0, startTime + dur);
+    source.connect(envelope).connect(layerGain);
+    source.start(startTime);
+    source.stop(startTime + dur + 0.1);
+
+    const nextStart = startTime + dur - fade;
+    const wait = Math.max(0, (nextStart - audioCtx.currentTime - LOOKAHEAD) * 1000);
+    timers.push(setTimeout(() => scheduleAt(nextStart), wait));
+  }
+
+  scheduleAt(audioCtx.currentTime + 0.05);
+
+  return {
+    stop() {
+      stopped = true;
+      timers.forEach(clearTimeout);
+      layerGain.gain.setTargetAtTime(0, audioCtx.currentTime, 0.5);
+      setTimeout(() => layerGain.disconnect(), 1500);
+    },
+  };
+}
+
+// Low wordless drone for the temple — a few detuned sine partials rather
+// than one pure tone, so it reads as a sustained hum, not a lab-tone beep.
+function startHum() {
+  const bus = audioCtx.createGain();
+  bus.gain.setValueAtTime(0, audioCtx.currentTime);
+  bus.gain.linearRampToValueAtTime(0.1, audioCtx.currentTime + 3);
+  bus.connect(ambienceBus);
+
+  const partials = [
+    { ratio: 1, detune: 0, level: 0.3 },
+    { ratio: 1, detune: 5, level: 0.08 },
+    { ratio: 1, detune: -5, level: 0.08 },
+    { ratio: 2, detune: 0, level: 0.06 },
+  ];
+  const oscillators = partials.map(({ ratio, detune, level }) => {
+    const osc = audioCtx.createOscillator();
+    osc.type = 'sine';
+    osc.frequency.value = 110 * ratio; // low A2-ish register
+    osc.detune.value = detune;
+    const gain = audioCtx.createGain();
+    gain.gain.value = level;
+    osc.connect(gain).connect(bus);
+    osc.start();
+    return osc;
+  });
+
+  return {
+    stop() {
+      bus.gain.setTargetAtTime(0, audioCtx.currentTime, 0.8);
+      setTimeout(() => {
+        oscillators.forEach((osc) => osc.stop());
+        bus.disconnect();
+      }, 2000);
+    },
+  };
+}
+
+const Ambience = {
+  start(sceneId) {
+    ensureAudio();
+    if (!audioCtx) return; // WebAudio unsupported — session still runs silently
+    this.stop();
+    const config = AMBIENCE[sceneId];
+    if (!config) return;
+
+    const token = ++ambienceToken;
+    ambienceBus = audioCtx.createGain();
+    ambienceBus.gain.value = 1;
+    ambienceBus.connect(masterGain);
+
+    for (const layer of config.layers) {
+      loadBuffer(layer.src).then((buffer) => {
+        if (token !== ambienceToken) return; // scene changed before this loaded
+        activeLayers.push(startLoopLayer(buffer, layer.gain, layer.crossfade));
+      });
+    }
+    if (config.hum) activeHum = startHum();
+  },
+
+  stop() {
+    ambienceToken++;
+    activeLayers.forEach((layer) => layer.stop());
+    activeLayers = [];
+    if (activeHum) {
+      activeHum.stop();
+      activeHum = null;
+    }
+    if (ambienceBus) {
+      const bus = ambienceBus;
+      setTimeout(() => bus.disconnect(), 1500);
+      ambienceBus = null;
+    }
+  },
+
+  duck() {
+    ambienceBus?.gain.setTargetAtTime(0, audioCtx.currentTime, 0.3);
+  },
+
+  unduck() {
+    ambienceBus?.gain.setTargetAtTime(1, audioCtx.currentTime, 0.3);
+  },
+};
+
 /* ---------- Boot ---------- */
 
 renderDurations();
 setScene(sceneIndex);
 setUIState('browse');
+muteBtn.classList.toggle('muted', muted);
+muteBtn.setAttribute('aria-pressed', String(muted));
 
 if ('serviceWorker' in navigator && location.protocol !== 'file:') {
   navigator.serviceWorker.register('sw.js').catch(() => {});
