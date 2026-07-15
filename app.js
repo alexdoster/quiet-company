@@ -2,6 +2,11 @@
 
 /* ---------- Config ---------- */
 
+// Bump alongside CACHE in sw.js on every deploy — this is the only
+// user-visible confirmation that a phone has picked up the latest build
+// (shown small, bottom-right, home screen only).
+const APP_VERSION = 5;
+
 const SCENES = [
   { id: 'monk', label: 'Temple', src: 'assets/video/monk-temple-breathing-v1.mp4' },
   { id: 'yoga', label: 'Studio', src: 'assets/video/yoga-studio-breathing-v1.mp4' },
@@ -599,6 +604,7 @@ setScene(sceneIndex);
 setUIState('browse');
 muteBtn.classList.toggle('muted', muted);
 muteBtn.setAttribute('aria-pressed', String(muted));
+$('#version').textContent = 'v' + APP_VERSION;
 
 if ('serviceWorker' in navigator && location.protocol !== 'file:') {
   navigator.serviceWorker.register('sw.js').catch(() => {});

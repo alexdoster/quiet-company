@@ -176,6 +176,25 @@ body {
   pointer-events: auto;
 }
 
+/* Build marker — only on the home/browse screen, out of the way,
+   there so Alex can confirm a phone picked up the latest deploy. */
+
+.version {
+  position: fixed;
+  right: calc(env(safe-area-inset-right) + 10px);
+  bottom: calc(env(safe-area-inset-bottom) + 10px);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-faint);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--fade) var(--ease);
+}
+
+.state-browse .version {
+  opacity: 0.55;
+}
+
 .dots {
   display: flex;
   justify-content: center;

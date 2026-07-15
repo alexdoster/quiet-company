@@ -1,6 +1,6 @@
 'use strict';
 
-const CACHE = 'quiet-company-v4';
+const CACHE = 'quiet-company-v5';
 
 const PRECACHE = [
   './',

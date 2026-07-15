@@ -40,6 +40,10 @@ Two version tracks, both manual:
   so an installed phone keeps running the old version until that string
   changes — bump it in any change you want deployed to existing installs,
   and the next launch fetches the new files and drops the old cache.
+  `APP_VERSION` at the top of `app.js` should move in lockstep with it —
+  that's what shows (small, bottom-right, home screen only) as the only
+  on-screen way to confirm a phone picked up the latest build. Bump both
+  numbers together on every deploy.
 
 ## Adding a scene
 
