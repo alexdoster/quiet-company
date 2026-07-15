@@ -5,6 +5,9 @@
 const SCENES = [
   { id: 'monk', label: 'Temple', src: 'assets/video/monk-temple-breathing-v1.mp4' },
   { id: 'yoga', label: 'Studio', src: 'assets/video/yoga-studio-breathing-v1.mp4' },
+  // On loan from Portals-App for desk-companion testing — may be removed
+  { id: 'hammock', label: 'Hammock', src: 'assets/video/hammock-sleep-v1.mp4' },
+  { id: 'horizon', label: 'Horizon', src: 'assets/video/horizon-gaze-v1.mp4' },
 ];
 
 const CUSTOM_DEFAULT = 20;

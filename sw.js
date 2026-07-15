@@ -1,6 +1,6 @@
 'use strict';
 
-const CACHE = 'quiet-company-v2';
+const CACHE = 'quiet-company-v3';
 
 const PRECACHE = [
   './',
@@ -13,6 +13,8 @@ const PRECACHE = [
   './icons/apple-touch-icon.png',
   './assets/video/monk-temple-breathing-v1.mp4',
   './assets/video/yoga-studio-breathing-v1.mp4',
+  './assets/video/hammock-sleep-v1.mp4',
+  './assets/video/horizon-gaze-v1.mp4',
 ];
 
 self.addEventListener('install', (event) => {
