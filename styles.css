@@ -119,7 +119,7 @@ body {
   justify-content: center;
 }
 
-.icon-btn .slash {
+.icon-btn .mute-x {
   opacity: 0;
   transition: opacity 0.25s var(--ease);
 }
@@ -132,7 +132,7 @@ body {
   opacity: 0;
 }
 
-.icon-btn.muted .slash {
+.icon-btn.muted .mute-x {
   opacity: 1;
 }
 

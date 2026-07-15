@@ -1,6 +1,6 @@
 'use strict';
 
-const CACHE = 'quiet-company-v8';
+const CACHE = 'quiet-company-v9';
 
 // Small, reliable app-shell files only. Video/audio used to be listed
 // here too, but eagerly downloading tens of MB during install is exactly
@@ -54,7 +54,7 @@ self.addEventListener('fetch', (event) => {
   // Safari requests video with Range headers; a plain cache.match response
   // (200, full body) breaks its player, so ranges get sliced explicitly.
   if (request.headers.has('range')) {
-    event.respondWith(rangeResponse(request));
+    event.respondWith(rangeResponse(request, event));
     return;
   }
 
@@ -73,19 +73,21 @@ self.addEventListener('fetch', (event) => {
   );
 });
 
-async function rangeResponse(request) {
+async function rangeResponse(request, event) {
   const cache = await caches.open(CACHE);
-  let hit = await cache.match(request.url);
+  const hit = await cache.match(request.url);
 
   if (!hit) {
-    // Nothing cached yet. Media elements often send a Range header even
-    // on the very first request (audio soundtracks, not just video) —
-    // fetch the full resource once (plain GET, no Range) so it lands in
-    // cache for every request after this one, not just this one.
-    const full = await fetch(request.url);
-    if (!full.ok) return fetch(request);
-    cache.put(request.url, full.clone());
-    hit = full;
+    // Nothing cached yet. Don't make this request wait on a full
+    // background download — that's what broke video/audio playback
+    // after media stopped being precached (a slow or stalled full
+    // fetch could block the very first byte the player asks for).
+    // Serve this one straight from the network like a normal request,
+    // and warm the cache in the background so later requests are fast.
+    // waitUntil keeps the SW alive long enough to finish that fetch
+    // even after this response has already gone out.
+    event.waitUntil(warmCache(request.url));
+    return fetch(request);
   }
 
   const buffer = await hit.arrayBuffer();
@@ -113,6 +115,20 @@ async function rangeResponse(request) {
       'Accept-Ranges': 'bytes',
     },
   });
+}
+
+// Fire-and-forget: fetch a resource in full and cache it, so the next
+// request for it (even a ranged one) can be served from the fast
+// already-cached path instead of hitting the network again.
+async function warmCache(url) {
+  try {
+    const cache = await caches.open(CACHE);
+    if (await cache.match(url)) return; // another request already warmed it
+    const full = await fetch(url);
+    if (full.ok) await cache.put(url, full);
+  } catch {
+    /* offline, or the fetch failed — just means it isn't cached yet */
+  }
 }
 
 function baseHeaders(response) {
