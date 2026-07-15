@@ -1,0 +1,378 @@
+:root {
+  --bg: #0d1116;
+  --ink: #f2efe7;
+  --ink-dim: rgba(242, 239, 231, 0.62);
+  --ink-faint: rgba(242, 239, 231, 0.38);
+  --glass: rgba(14, 18, 24, 0.42);
+  --glass-border: rgba(255, 255, 255, 0.14);
+  --ease: cubic-bezier(0.33, 0, 0.2, 1);
+  --fade: 0.6s;
+}
+
+* {
+  box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI",
+    Roboto, "Helvetica Neue", sans-serif;
+  overflow: hidden;
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: pan-y;
+}
+
+/* ---------- Video stage ---------- */
+
+#stage {
+  position: fixed;
+  inset: 0;
+  background: radial-gradient(120% 120% at 50% 30%, #1a2430 0%, #0d1116 70%);
+}
+
+.scene-video {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  opacity: 0;
+  transition: opacity 1.2s var(--ease);
+}
+
+.scene-video.active {
+  opacity: 1;
+}
+
+.scene-video.missing {
+  display: none;
+}
+
+/* Legibility scrims over the video, never over the character's center */
+
+.scrim {
+  position: fixed;
+  left: 0;
+  right: 0;
+  pointer-events: none;
+}
+
+.scrim-top {
+  top: 0;
+  height: 20vh;
+  background: linear-gradient(rgba(8, 10, 14, 0.5), transparent);
+}
+
+.scrim-bottom {
+  bottom: 0;
+  height: 32vh;
+  background: linear-gradient(transparent, rgba(8, 10, 14, 0.6));
+}
+
+/* ---------- Layout ---------- */
+
+#ui {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: calc(env(safe-area-inset-top) + 20px)
+    calc(env(safe-area-inset-right) + 24px)
+    calc(env(safe-area-inset-bottom) + 28px)
+    calc(env(safe-area-inset-left) + 24px);
+}
+
+.top {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  transition: opacity 0.9s var(--ease);
+}
+
+.brand {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+}
+
+/* ---------- Carousel navigation (browse state only) ---------- */
+
+.nav-arrow {
+  position: fixed;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: 1px solid var(--glass-border);
+  background: var(--glass);
+  -webkit-backdrop-filter: blur(20px);
+  backdrop-filter: blur(20px);
+  color: var(--ink-dim);
+  font-size: 22px;
+  line-height: 1;
+  padding: 0 0 3px;
+  cursor: pointer;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--fade) var(--ease), color 0.3s var(--ease);
+}
+
+.nav-arrow:hover {
+  color: var(--ink);
+}
+
+.nav-arrow.prev {
+  left: calc(env(safe-area-inset-left) + 16px);
+}
+
+.nav-arrow.next {
+  right: calc(env(safe-area-inset-right) + 16px);
+}
+
+.state-browse .nav-arrow {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.dots {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.dot {
+  appearance: none;
+  border: none;
+  padding: 0;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--ink-faint);
+  cursor: pointer;
+  transition: background 0.3s var(--ease), transform 0.3s var(--ease);
+}
+
+.dot.selected {
+  background: var(--ink);
+  transform: scale(1.25);
+}
+
+.scene-name {
+  margin: 0 0 20px;
+  font-size: 15px;
+  font-weight: 500;
+  letter-spacing: 0.3em;
+  text-indent: 0.3em; /* re-centers letterspaced text */
+  text-transform: uppercase;
+  color: var(--ink);
+  text-shadow: 0 1px 12px rgba(0, 0, 0, 0.5);
+  transition: opacity 0.25s var(--ease);
+}
+
+.scene-name.out {
+  opacity: 0;
+}
+
+/* ---------- Panels (crossfade in a shared grid cell) ---------- */
+
+.panels {
+  display: grid;
+  justify-items: center;
+}
+
+.panel {
+  grid-area: 1 / 1;
+  width: 100%;
+  max-width: 420px;
+  text-align: center;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity var(--fade) var(--ease),
+    visibility 0s linear var(--fade);
+}
+
+.panel.visible {
+  opacity: 1;
+  visibility: visible;
+  transition: opacity var(--fade) var(--ease);
+}
+
+/* ---------- Buttons ---------- */
+
+.pill {
+  appearance: none;
+  border: 1px solid var(--glass-border);
+  background: var(--glass);
+  -webkit-backdrop-filter: blur(20px) saturate(140%);
+  backdrop-filter: blur(20px) saturate(140%);
+  color: var(--ink);
+  border-radius: 999px;
+  padding: 12px 22px;
+  font: inherit;
+  font-size: 15px;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  transition: background 0.3s var(--ease), border-color 0.3s var(--ease),
+    color 0.3s var(--ease), transform 0.15s var(--ease);
+}
+
+.pill:active {
+  transform: scale(0.97);
+}
+
+.pill.selected {
+  background: rgba(242, 239, 231, 0.92);
+  border-color: transparent;
+  color: #141920;
+}
+
+.pill.subtle {
+  background: transparent;
+  border-color: rgba(255, 255, 255, 0.1);
+  color: var(--ink-dim);
+}
+
+.cta {
+  min-width: 200px;
+  padding: 15px 30px;
+  font-size: 16px;
+}
+
+/* ---------- Setup panel ---------- */
+
+.prompt {
+  margin: 0 0 18px;
+  font-size: 17px;
+  font-weight: 300;
+  color: var(--ink-dim);
+}
+
+.durations {
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.custom-row {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 18px;
+  margin-bottom: 18px;
+  max-height: 60px;
+  opacity: 1;
+  transition: opacity 0.4s var(--ease), max-height 0.4s var(--ease);
+}
+
+.custom-row.collapsed {
+  max-height: 0;
+  opacity: 0;
+  margin-bottom: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.step {
+  appearance: none;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: 1px solid var(--glass-border);
+  background: var(--glass);
+  -webkit-backdrop-filter: blur(20px);
+  backdrop-filter: blur(20px);
+  color: var(--ink);
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+  transition: transform 0.15s var(--ease);
+}
+
+.step:active {
+  transform: scale(0.94);
+}
+
+.custom-value {
+  min-width: 84px;
+  font-size: 17px;
+  font-weight: 300;
+  font-variant-numeric: tabular-nums;
+}
+
+.setup-actions {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+}
+
+/* ---------- Session panel ---------- */
+
+.countdown {
+  font-size: clamp(56px, 12vw, 84px);
+  font-weight: 200;
+  letter-spacing: 0.04em;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  margin-bottom: 22px;
+  text-shadow: 0 2px 24px rgba(0, 0, 0, 0.45);
+  transition: opacity 0.9s var(--ease);
+}
+
+.session-controls {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+  transition: opacity 0.9s var(--ease);
+}
+
+/* Resting state: controls fade away so the scene holds the screen.
+   The countdown stays as a dim glance-read; any tap wakes the UI. */
+
+.resting .countdown {
+  opacity: 0.28;
+}
+
+.resting .session-controls,
+.resting .top {
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* ---------- Complete panel ---------- */
+
+.complete-msg {
+  margin: 0 0 20px;
+  font-size: 24px;
+  font-weight: 300;
+  color: var(--ink);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .scene-video,
+  .panel,
+  .countdown,
+  .session-controls,
+  .top,
+  .nav-arrow,
+  .scene-name,
+  .custom-row {
+    transition: none;
+  }
+}

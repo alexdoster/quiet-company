@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Quiet Company</title>
+  <meta name="description" content="A quiet companion for breathing sessions.">
+  <meta name="theme-color" content="#0d1116">
+  <link rel="manifest" href="manifest.webmanifest">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Quiet Company">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+  <link rel="icon" href="icons/icon-192.png" type="image/png">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+  <div id="stage" aria-hidden="true"></div>
+  <div class="scrim scrim-top" aria-hidden="true"></div>
+  <div class="scrim scrim-bottom" aria-hidden="true"></div>
+
+  <main id="ui" class="state-browse">
+    <header class="top">
+      <h1 class="brand">Quiet Company</h1>
+    </header>
+
+    <button id="nav-prev" class="nav-arrow prev" aria-label="Previous scene">&#8249;</button>
+    <button id="nav-next" class="nav-arrow next" aria-label="Next scene">&#8250;</button>
+
+    <div class="panels">
+
+      <section id="browse" class="panel visible" aria-label="Choose a scene">
+        <div id="dots" class="dots" role="tablist" aria-label="Scenes"></div>
+        <h2 id="scene-name" class="scene-name">Temple</h2>
+        <button id="choose" class="pill cta">Begin</button>
+      </section>
+
+      <section id="setup" class="panel" aria-label="Session length">
+        <p class="prompt">How long would you like to sit?</p>
+        <div id="durations" class="durations" role="group" aria-label="Session length">
+          <button class="pill duration" data-minutes="5">5 min</button>
+          <button class="pill duration" data-minutes="10">10 min</button>
+          <button class="pill duration" data-minutes="15">15 min</button>
+          <button class="pill duration" data-minutes="custom">Custom</button>
+        </div>
+        <div id="custom-row" class="custom-row">
+          <button id="custom-minus" class="step" aria-label="One minute less">&minus;</button>
+          <span id="custom-value" class="custom-value">20 min</span>
+          <button id="custom-plus" class="step" aria-label="One minute more">+</button>
+        </div>
+        <div class="setup-actions">
+          <button id="back" class="pill subtle">Back</button>
+          <button id="begin" class="pill cta">Start</button>
+        </div>
+      </section>
+
+      <section id="session" class="panel" aria-label="Session in progress">
+        <div id="countdown" class="countdown" role="timer" aria-live="off">10:00</div>
+        <div class="session-controls">
+          <button id="pause" class="pill">Pause</button>
+          <button id="end" class="pill subtle">End</button>
+        </div>
+      </section>
+
+      <section id="complete" class="panel" aria-label="Session complete">
+        <p class="complete-msg">Session complete</p>
+        <button id="again" class="pill cta">Sit again</button>
+      </section>
+
+    </div>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>
