@@ -1,6 +1,6 @@
 'use strict';
 
-const CACHE = 'quiet-company-v12';
+const CACHE = 'quiet-company-v13';
 
 // Small, reliable app-shell files only. Video/audio used to be listed
 // here too, but eagerly downloading tens of MB during install is exactly
@@ -20,6 +20,13 @@ const PRECACHE = [
   './icons/icon-192.png',
   './icons/icon-512.png',
   './icons/apple-touch-icon.png',
+  // Home-screen card thumbnails — ~500KB total, nowhere near the ~20MB
+  // media bulk that used to break installs; the landing grid is the one
+  // screen that should never open with broken images.
+  './assets/img/card-monk.jpg',
+  './assets/img/card-yoga.jpg',
+  './assets/img/card-hammock.jpg',
+  './assets/img/card-horizon.jpg',
 ];
 
 self.addEventListener('install', (event) => {

@@ -5,14 +5,14 @@
 // Bump alongside CACHE in sw.js on every deploy — this is the only
 // user-visible confirmation that a phone has picked up the latest build
 // (shown small, bottom-right, home screen only).
-const APP_VERSION = 12;
+const APP_VERSION = 13;
 
 const SCENES = [
-  { id: 'monk', label: 'Temple', src: 'assets/video/monk-temple-breathing-v1.mp4' },
-  { id: 'yoga', label: 'Studio', src: 'assets/video/yoga-studio-breathing-v1.mp4' },
+  { id: 'monk', label: 'Temple', src: 'assets/video/monk-temple-breathing-v1.mp4', card: 'assets/img/card-monk.jpg' },
+  { id: 'yoga', label: 'Studio', src: 'assets/video/yoga-studio-breathing-v1.mp4', card: 'assets/img/card-yoga.jpg' },
   // On loan from Portals-App for desk-companion testing — may be removed
-  { id: 'hammock', label: 'Hammock', src: 'assets/video/hammock-sleep-v1.mp4' },
-  { id: 'horizon', label: 'Horizon', src: 'assets/video/horizon-gaze-v1.mp4' },
+  { id: 'hammock', label: 'Hammock', src: 'assets/video/hammock-sleep-v1.mp4', card: 'assets/img/card-hammock.jpg' },
+  { id: 'horizon', label: 'Horizon', src: 'assets/video/horizon-gaze-v1.mp4', card: 'assets/img/card-horizon.jpg' },
 ];
 
 // Portals-App gag prototype (button-triggered, running sessions only): the
@@ -29,56 +29,59 @@ const GAGS = {
 // See assets/audio/CREDITS.md for sourcing (all CC0, BigSoundBank).
 const AMBIENCE = {
   monk: {
+    label: 'Temple bowl',
     hum: true, // synthesized wordless drone, layered under the bowl
     layers: [{ src: 'assets/audio/temple-bowl.mp3', gain: 0.5, crossfade: 3 }],
   },
   hammock: {
+    label: 'Cicadas & campfire',
     layers: [
       { src: 'assets/audio/hammock-cicadas.mp3', gain: 0.4, crossfade: 2.5 },
       { src: 'assets/audio/hammock-campfire.mp3', gain: 0.3, crossfade: 2.5 },
     ],
   },
   horizon: {
+    label: 'Ocean waves',
     layers: [{ src: 'assets/audio/horizon-waves.mp3', gain: 0.55, crossfade: 2.5 }],
   },
 };
 
-// Optional full-track soundtrack, currently yoga only. Unlike AMBIENCE
-// above (texture, crossfade-looped), these are real compositions with
-// musical structure — played as whole tracks, not loop-scheduled.
+// Optional full-track soundtrack, offered on every scene (was yoga-only
+// until v13). Unlike AMBIENCE above (texture, crossfade-looped), these
+// are real compositions with musical structure — played as whole tracks,
+// not loop-scheduled.
 // Royalty-free (CC BY 4.0, Scott Buckley — attribution required, see
 // assets/audio/CREDITS.md), picked as mood-equivalents for the named
 // copyrighted artists Alex referenced, not copies of them; those can't
 // legally be embedded in a public repo. Two tracks per mood so there's
-// a real choice, not just one pick per category.
-const MUSIC = {
-  yoga: [
-    {
-      id: 'restorative',
-      label: 'Restorative',
-      tracks: [
-        { label: 'Penumbra', src: 'assets/audio/yoga-restorative-penumbra.mp3' },
-        { label: 'Meanwhile', src: 'assets/audio/yoga-restorative-meanwhile.mp3' },
-      ],
-    },
-    {
-      id: 'flow',
-      label: 'Flow',
-      tracks: [
-        { label: 'Amberlight', src: 'assets/audio/yoga-flow-amberlight.mp3' },
-        { label: 'Echoes Of Home', src: 'assets/audio/yoga-flow-echoes-of-home.mp3' },
-      ],
-    },
-    {
-      id: 'vinyasa',
-      label: 'Vinyasa',
-      tracks: [
-        { label: 'Born Of The Sky', src: 'assets/audio/yoga-vinyasa-born-of-the-sky.mp3' },
-        { label: 'Convergence', src: 'assets/audio/yoga-vinyasa-convergence.mp3' },
-      ],
-    },
-  ],
-};
+// a real choice, not just one pick per category. File names keep their
+// original yoga- prefix from when this was scoped to that scene.
+const MUSIC = [
+  {
+    id: 'restorative',
+    label: 'Restorative',
+    tracks: [
+      { label: 'Penumbra', src: 'assets/audio/yoga-restorative-penumbra.mp3' },
+      { label: 'Meanwhile', src: 'assets/audio/yoga-restorative-meanwhile.mp3' },
+    ],
+  },
+  {
+    id: 'flow',
+    label: 'Flow',
+    tracks: [
+      { label: 'Amberlight', src: 'assets/audio/yoga-flow-amberlight.mp3' },
+      { label: 'Echoes Of Home', src: 'assets/audio/yoga-flow-echoes-of-home.mp3' },
+    ],
+  },
+  {
+    id: 'vinyasa',
+    label: 'Vinyasa',
+    tracks: [
+      { label: 'Born Of The Sky', src: 'assets/audio/yoga-vinyasa-born-of-the-sky.mp3' },
+      { label: 'Convergence', src: 'assets/audio/yoga-vinyasa-convergence.mp3' },
+    ],
+  },
+];
 const MUSIC_VOLUME = 0.55;
 
 const CUSTOM_DEFAULT = 20;
@@ -108,7 +111,10 @@ const countdownEl = $('#countdown');
 const pauseBtn = $('#pause');
 const muteBtn = $('#mute');
 const gagBtn = $('#gag');
-const soundtrackEl = $('#soundtrack');
+const cardGridEl = $('#card-grid');
+const toHomeBtn = $('#to-home');
+const ambienceRowEl = $('#ambience-row');
+const ambienceToggle = $('#ambience-toggle');
 const musicPillsEl = $('#music-pills');
 const musicNowEl = $('#music-now');
 const musicCreditEl = $('.music-credit');
@@ -135,11 +141,13 @@ const store = {
 
 /* ---------- UI state ---------- */
 
-let uiState = 'browse'; // browse | setup | running | paused | complete
+let uiState = 'home'; // home | browse | setup | running | paused | complete
 
 function setUIState(state) {
   uiState = state;
   ui.className = 'state-' + state;
+  document.body.classList.toggle('at-home', state === 'home');
+  if (state === 'home') pauseAllVideos();
   panels.browse.classList.toggle('visible', state === 'browse');
   panels.setup.classList.toggle('visible', state === 'setup');
   panels.session.classList.toggle(
@@ -182,6 +190,28 @@ for (const scene of SCENES) {
     setScene(SCENES.indexOf(scene), { animateName: true })
   );
   dotsEl.appendChild(dot);
+
+  // Home-screen card: a still-image thumbnail, so the landing page costs
+  // a few hundred KB of images total — video only loads for a tapped card.
+  const card = document.createElement('button');
+  card.className = 'card';
+  const img = document.createElement('img');
+  img.src = scene.card;
+  img.alt = '';
+  img.loading = 'lazy';
+  const name = document.createElement('span');
+  name.className = 'card-name';
+  name.textContent = scene.label;
+  card.append(img, name);
+  card.addEventListener('click', () => {
+    setScene(SCENES.indexOf(scene));
+    setUIState('browse');
+  });
+  cardGridEl.appendChild(card);
+}
+
+function pauseAllVideos() {
+  for (const video of videos.values()) video.pause();
 }
 
 function ensureVideoLoaded(index) {
@@ -380,8 +410,8 @@ function startSession(minutes) {
   playActiveVideo();
   acquireWakeLock();
   chimeStart();
-  Ambience.start(SCENES[sceneIndex].id);
-  const track = MUSIC[SCENES[sceneIndex].id] && currentMusicTrack();
+  if (ambienceOn) Ambience.start(SCENES[sceneIndex].id);
+  const track = currentMusicTrack();
   if (track) startMusic(track.src);
 }
 
@@ -469,24 +499,34 @@ function nudgeCustom(delta) {
 $('#custom-minus').addEventListener('click', () => nudgeCustom(-1));
 $('#custom-plus').addEventListener('click', () => nudgeCustom(1));
 
-/* ---------- Soundtrack picker (yoga only, for now) ----------
-   One tap picks a mood category (its first track); tapping the
-   already-selected category again cycles to the alternate track in
-   that mood — keeps the visible control to 4 pills (same footprint as
-   the duration row) while still offering a real choice per category. */
+/* ---------- Sound picker (all scenes, everything off by default) ----------
+   One unified section on the setup screen: an ambience toggle (the
+   scene's matched bed, shown only where a bed exists) plus the music
+   mood pills, now offered on every scene. Both default to off — sound
+   is opt-in per Alex's call; the start/end chimes are a timer function,
+   not ambience, so they stay on (governed only by the global mute).
+   Music pills: one tap picks a mood (its first track); tapping the
+   already-selected mood again cycles to the alternate track in that
+   mood — keeps the visible control to 4 pills (same footprint as the
+   duration row) while still offering a real choice per category. */
 
+let ambienceOn = store.get('ambienceOn', false);
 let musicCategory = store.get('musicCategory', 'none');
 let musicTrackIndex = store.get('musicTrackIndex', 0);
 
 function currentMusicTrack() {
-  const group = MUSIC.yoga.find((c) => c.id === musicCategory);
+  const group = MUSIC.find((c) => c.id === musicCategory);
   return group ? group.tracks[musicTrackIndex % group.tracks.length] : null;
 }
 
-function renderSoundtrack() {
-  const hasMusic = !!MUSIC[SCENES[sceneIndex].id];
-  soundtrackEl.classList.toggle('hidden', !hasMusic);
-  if (!hasMusic) return;
+function renderSound() {
+  const bed = AMBIENCE[SCENES[sceneIndex].id];
+  ambienceRowEl.classList.toggle('hidden', !bed);
+  if (bed) {
+    ambienceToggle.textContent = bed.label;
+    ambienceToggle.classList.toggle('selected', ambienceOn);
+    ambienceToggle.setAttribute('aria-pressed', String(ambienceOn));
+  }
 
   for (const btn of musicPillsEl.children) {
     btn.classList.toggle('selected', btn.dataset.cat === musicCategory);
@@ -496,12 +536,18 @@ function renderSoundtrack() {
   musicCreditEl.classList.toggle('visible', !!track);
 }
 
+ambienceToggle.addEventListener('click', () => {
+  ambienceOn = !ambienceOn;
+  store.set('ambienceOn', ambienceOn);
+  renderSound();
+});
+
 musicPillsEl.addEventListener('click', (event) => {
   const btn = event.target.closest('.music-cat');
   if (!btn) return;
   const cat = btn.dataset.cat;
   if (cat === musicCategory && cat !== 'none') {
-    const group = MUSIC.yoga.find((c) => c.id === cat);
+    const group = MUSIC.find((c) => c.id === cat);
     musicTrackIndex = (musicTrackIndex + 1) % group.tracks.length;
   } else {
     musicCategory = cat;
@@ -509,18 +555,20 @@ musicPillsEl.addEventListener('click', (event) => {
   }
   store.set('musicCategory', musicCategory);
   store.set('musicTrackIndex', musicTrackIndex);
-  renderSoundtrack();
+  renderSound();
 });
 
 /* ---------- Flow buttons ---------- */
 
 $('#choose').addEventListener('click', () => {
   ensureAudio(); // user gesture — safe moment to unlock WebAudio on iOS
-  renderSoundtrack();
+  renderSound();
   setUIState('setup');
 });
 
 $('#back').addEventListener('click', () => setUIState('browse'));
+
+toHomeBtn.addEventListener('click', () => setUIState('home'));
 
 gagBtn.addEventListener('click', playGag);
 
@@ -552,7 +600,7 @@ function releaseWakeLock() {
 
 document.addEventListener('visibilitychange', () => {
   if (document.visibilityState !== 'visible') return;
-  playActiveVideo();
+  if (uiState !== 'home') playActiveVideo();
   if (gagPlaying) gagVideo.play().catch(cancelGag);
   if (audioCtx?.state === 'suspended') audioCtx.resume();
   if (uiState === 'running') {
@@ -802,8 +850,9 @@ const Ambience = {
 /* ---------- Boot ---------- */
 
 renderDurations();
-setScene(sceneIndex);
-setUIState('browse');
+// Land on the home grid without touching any video — setScene (and the
+// lazy video loading it triggers) waits for the first card tap.
+setUIState('home');
 muteBtn.classList.toggle('muted', muted);
 muteBtn.textContent = muted ? 'Muted' : 'Sound';
 muteBtn.setAttribute('aria-pressed', String(muted));

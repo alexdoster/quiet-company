@@ -21,15 +21,25 @@
   <div class="scrim scrim-top" aria-hidden="true"></div>
   <div class="scrim scrim-bottom" aria-hidden="true"></div>
 
+  <section id="home" class="home" aria-label="Choose a scene">
+    <header class="home-header">
+      <h1 class="home-brand">Quiet Company</h1>
+      <p class="home-tagline">Choose who sits with you.</p>
+    </header>
+    <div id="card-grid" class="card-grid"></div>
+    <footer class="home-foot">
+      <div id="version" class="version" aria-hidden="true"></div>
+    </footer>
+  </section>
+
   <main id="ui" class="state-browse">
     <header class="top">
-      <h1 class="brand">Quiet Company</h1>
+      <button id="to-home" class="pill subtle home-btn">&#8249; Scenes</button>
       <button id="mute" class="pill mute-toggle" aria-pressed="false">Sound</button>
     </header>
 
     <button id="nav-prev" class="nav-arrow prev" aria-label="Previous scene">&#8249;</button>
     <button id="nav-next" class="nav-arrow next" aria-label="Next scene">&#8250;</button>
-    <div id="version" class="version" aria-hidden="true"></div>
 
     <div class="panels">
 
@@ -52,13 +62,16 @@
           <span id="custom-value" class="custom-value">20 min</span>
           <button id="custom-plus" class="step" aria-label="One minute more">+</button>
         </div>
-        <div id="soundtrack" class="soundtrack hidden">
-          <p class="prompt-sub">Soundtrack</p>
-          <div id="music-pills" class="durations" role="group" aria-label="Soundtrack mood">
+        <div id="sound" class="sound-section">
+          <p class="prompt-sub">Sound</p>
+          <div id="ambience-row" class="durations hidden">
+            <button id="ambience-toggle" class="pill sound-toggle" aria-pressed="false">Ambience</button>
+          </div>
+          <div id="music-pills" class="durations" role="group" aria-label="Music mood">
             <button class="pill music-cat" data-cat="restorative">Restorative</button>
             <button class="pill music-cat" data-cat="flow">Flow</button>
             <button class="pill music-cat" data-cat="vinyasa">Vinyasa</button>
-            <button class="pill music-cat" data-cat="none">None</button>
+            <button class="pill music-cat" data-cat="none">No music</button>
           </div>
           <p id="music-now" class="music-now"></p>
           <p class="music-credit">Music by Scott Buckley &mdash; CC BY 4.0</p>
