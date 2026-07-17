@@ -685,6 +685,33 @@ body.at-home .scrim {
   }
 }
 
+/* Landscape phones: the centered countdown stack lands on the
+   character's face (subjects are center-framed by design in every
+   scene), so the clock docks in the top-left corner instead — corners
+   are reliably background across the roster, no per-scene tuning.
+   Must follow the max-height block above so these sizes win when both
+   queries match. */
+@media (max-height: 520px) and (orientation: landscape) {
+  .countdown {
+    position: fixed;
+    top: calc(env(safe-area-inset-top) + 14px);
+    left: calc(env(safe-area-inset-left) + 22px);
+    margin: 0;
+    font-size: 28px;
+    font-weight: 300;
+    letter-spacing: 0.05em;
+  }
+
+  /* With the clock out of the flow, Pause/End would ride at the top of
+     the panel cell (stretched by the taller hidden setup panel) — right
+     under the character's chin. Pin them to the bottom edge instead. */
+  #session {
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .scene-video,
   .panel,
