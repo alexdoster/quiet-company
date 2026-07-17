@@ -1,6 +1,6 @@
 'use strict';
 
-const CACHE = 'quiet-company-v18';
+const CACHE = 'quiet-company-v19';
 
 // Small, reliable app-shell files only. Video/audio used to be listed
 // here too, but eagerly downloading tens of MB during install is exactly
@@ -33,7 +33,14 @@ self.addEventListener('install', (event) => {
   event.waitUntil(
     caches
       .open(CACHE)
-      .then((cache) => cache.addAll(PRECACHE))
+      // cache: 'no-cache' forces revalidation with the server — plain
+      // addAll(urls) is satisfied from the HTTP cache, and GitHub Pages
+      // serves max-age=600, so an install within 10 minutes of the last
+      // visit precached STALE shell files into the new version's cache
+      // (how Alex's phone got pinned to v16 while the SW said v17/v18).
+      .then((cache) =>
+        cache.addAll(PRECACHE.map((url) => new Request(url, { cache: 'no-cache' })))
+      )
       .then(() => self.skipWaiting())
       .catch((err) => {
         console.error('SW install failed:', err);
