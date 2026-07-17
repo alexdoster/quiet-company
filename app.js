@@ -5,7 +5,7 @@
 // Bump alongside CACHE in sw.js on every deploy — this is the only
 // user-visible confirmation that a phone has picked up the latest build
 // (shown small, bottom-right, home screen only).
-const APP_VERSION = 17;
+const APP_VERSION = 18;
 
 const SCENES = [
   { id: 'monk', label: 'Temple', src: 'assets/video/monk-temple-breathing-v1.mp4', card: 'assets/img/card-monk.jpg' },
@@ -84,6 +84,58 @@ const MUSIC = [
 ];
 const MUSIC_VOLUME = 0.55;
 
+// Expansion review (testing tool, may be removed): every candidate still
+// awaiting Kling processing, downscaled to assets/expansion/, so Alex
+// can flip through them on his phone and prioritize animation order.
+// Excludes the already-animated monk/yoga source stills. Filenames are
+// the labels — they match the batch findings docs.
+const EXPANSION = [
+  'Alien',
+  'alien-pod-accidental-eyes-open-v1',
+  'alien-pod-still-v2-eyes-closed-rounder',
+  'alien-pod-still-v2-eyes-closed-smooth',
+  'alien-pod-still-v3-eyes-closed-teal',
+  'alpine-lake-still-v1',
+  'campfire-alternate-v1',
+  'campfire-alternate-v2-refined-LOCKED',
+  'campfire-alternate-v2',
+  'campfire-standard-hooded-v1',
+  'campfire-standard-scarf-v1',
+  'candle-still-v2-photoreal',
+  'dog-hearth-still-v1-sitting-full-scene',
+  'dog-hearth-still-v2-puppy-closeup',
+  'dog-hearth-still-v3-lying-closeup',
+  'dog-meditation-pose-still-v1',
+  'druid-glade-still-v1-copper-braids',
+  'druid-glade-still-v2-white-sleeves',
+  'druid-glade-still-v3-blonde-mossy',
+  'hearth-fire-still-v1-wide-arch',
+  'hearth-fire-still-v2-tight-logs',
+  'incense-bowl-still-v1-tight-crop',
+  'incense-bowl-still-v2-wide-shot',
+  'incense-macro-still-v1-angled-driftwood',
+  'leopard-royalty-still-v1',
+  'light-vortex-still-v1-wide-warm',
+  'light-vortex-still-v2-tight-cool',
+  'rain-window-still-v1',
+  'rooftop-alternate-still-v1',
+  'rooftop-standard-still-v1-v-neck',
+  'rooftop-standard-still-v2-open-shirt',
+  'steampunk-deck-still-v1-porthole-halo',
+  'steampunk-deck-still-v2-maroon-symmetry',
+  'steampunk-deck-still-v3-topknot-teal',
+  'sunrise-meadow-still-v1',
+  'teahouse-alternate-profile-v1',
+  'teahouse-standard-still-v1',
+  'teahouse-standard-still-v2',
+  'water-silhouette-still-v1',
+  'waterfall-alternate-still-v1',
+  'yoga-photoreal-v1',
+  'zen-garden-still-v2-closest-swirl',
+  'zen-garden-still-v2-diagonal-haze',
+  'zen-garden-still-v2-wide-standing-stones',
+];
+
 const CUSTOM_DEFAULT = 20;
 const CUSTOM_MIN = 1;
 const CUSTOM_MAX = 120;
@@ -140,13 +192,14 @@ const store = {
 
 /* ---------- UI state ---------- */
 
-let uiState = 'home'; // home | browse | setup | running | paused | complete
+let uiState = 'home'; // home | expansion | browse | setup | running | paused | complete
 
 function setUIState(state) {
   uiState = state;
   ui.className = 'state-' + state;
   document.body.classList.toggle('at-home', state === 'home');
-  if (state === 'home') pauseAllVideos();
+  document.body.classList.toggle('at-expansion', state === 'expansion');
+  if (state === 'home' || state === 'expansion') pauseAllVideos();
   panels.browse.classList.toggle('visible', state === 'browse');
   panels.setup.classList.toggle('visible', state === 'setup');
   panels.session.classList.toggle(
@@ -343,7 +396,10 @@ window.addEventListener('pointerdown', (event) => {
   // The gag trigger deliberately doesn't wake the resting UI — the scene
   // should stay uncluttered while the interruption plays out.
   if (!event.target.closest('.gag-btn')) wake();
-  if (uiState === 'browse' && !event.target.closest('button')) {
+  if (
+    (uiState === 'browse' || uiState === 'expansion') &&
+    !event.target.closest('button')
+  ) {
     swipeStart = { x: event.clientX, y: event.clientY };
   }
 });
@@ -353,16 +409,18 @@ window.addEventListener('pointerup', (event) => {
   const dx = event.clientX - swipeStart.x;
   const dy = event.clientY - swipeStart.y;
   swipeStart = null;
-  if (uiState !== 'browse') return;
   if (Math.abs(dx) >= SWIPE_MIN && Math.abs(dx) > Math.abs(dy) * 1.5) {
-    changeScene(dx < 0 ? 1 : -1);
+    if (uiState === 'browse') changeScene(dx < 0 ? 1 : -1);
+    if (uiState === 'expansion') showExpansion(expIndex + (dx < 0 ? 1 : -1));
   }
 });
 
 window.addEventListener('keydown', (event) => {
-  if (uiState !== 'browse') return;
-  if (event.key === 'ArrowRight') changeScene(1);
-  if (event.key === 'ArrowLeft') changeScene(-1);
+  const step =
+    event.key === 'ArrowRight' ? 1 : event.key === 'ArrowLeft' ? -1 : 0;
+  if (!step) return;
+  if (uiState === 'browse') changeScene(step);
+  if (uiState === 'expansion') showExpansion(expIndex + step);
 });
 
 $('#nav-prev').addEventListener('click', () => changeScene(-1));
@@ -567,6 +625,41 @@ musicSelect.addEventListener('change', () => {
   store.set('musicTrackIndex', musicTrackIndex);
   renderSound();
 });
+
+/* ---------- Expansion viewer (testing tool, may be removed) ---------- */
+
+const expImage = $('#exp-image');
+const expCounter = $('#exp-counter');
+const expName = $('#exp-name');
+
+let expIndex = Math.min(
+  Math.max(0, store.get('expIndex', 0)),
+  EXPANSION.length - 1
+);
+
+function expSrc(index) {
+  return 'assets/expansion/' + EXPANSION[index] + '.jpg';
+}
+
+function showExpansion(index) {
+  expIndex = (index + EXPANSION.length) % EXPANSION.length;
+  store.set('expIndex', expIndex);
+  expImage.src = expSrc(expIndex);
+  expCounter.textContent = `${expIndex + 1} / ${EXPANSION.length}`;
+  expName.textContent = EXPANSION[expIndex].replace(/-/g, ' ');
+  // Warm both neighbors so a swipe lands on a loaded image
+  for (const delta of [1, -1]) {
+    new Image().src = expSrc((expIndex + delta + EXPANSION.length) % EXPANSION.length);
+  }
+}
+
+$('#expansion-entry').addEventListener('click', () => {
+  showExpansion(expIndex);
+  setUIState('expansion');
+});
+$('#exp-home').addEventListener('click', () => setUIState('home'));
+$('#exp-prev').addEventListener('click', () => showExpansion(expIndex - 1));
+$('#exp-next').addEventListener('click', () => showExpansion(expIndex + 1));
 
 /* ---------- Flow buttons ---------- */
 
@@ -870,6 +963,7 @@ muteBtn.classList.toggle('muted', muted);
 muteBtn.textContent = muted ? 'Muted' : 'Sound';
 muteBtn.setAttribute('aria-pressed', String(muted));
 $('#version').textContent = 'v' + APP_VERSION;
+$('.card-count').textContent = EXPANSION.length + ' stills';
 
 if ('serviceWorker' in navigator && location.protocol !== 'file:') {
   navigator.serviceWorker.register('sw.js').catch(() => {});
