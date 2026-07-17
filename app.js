@@ -5,7 +5,7 @@
 // Bump alongside CACHE in sw.js on every deploy — this is the only
 // user-visible confirmation that a phone has picked up the latest build
 // (shown small, bottom-right, home screen only).
-const APP_VERSION = 11;
+const APP_VERSION = 12;
 
 const SCENES = [
   { id: 'monk', label: 'Temple', src: 'assets/video/monk-temple-breathing-v1.mp4' },
@@ -15,9 +15,9 @@ const SCENES = [
   { id: 'horizon', label: 'Horizon', src: 'assets/video/horizon-gaze-v1.mp4' },
 ];
 
-// Portals-App gag prototype (button-triggered, browse mode only): the gag
-// clip crossfades in over the scene's loop, plays once, and fades back out
-// to its outro scene — the loop keeps running underneath the whole time.
+// Portals-App gag prototype (button-triggered, running sessions only): the
+// gag clip crossfades in over the scene's loop, plays once, and fades back
+// out to its outro scene — the loop keeps running underneath the whole time.
 // On loan like the Hammock/Horizon scenes themselves; may be removed.
 const GAGS = {
   hammock: { src: 'assets/video/monkey-briefcase-gag-v1.mp4', outro: 'hammock' },
@@ -147,7 +147,7 @@ function setUIState(state) {
     state === 'running' || state === 'paused'
   );
   panels.complete.classList.toggle('visible', state === 'complete');
-  if (state !== 'browse') cancelGag();
+  if (state !== 'running') cancelGag();
   renderGagButton();
   scheduleRest();
 }
@@ -263,7 +263,7 @@ function ensureGagVideo() {
 // Show the button only where a gag exists; warm the clip so the press
 // doesn't open on a still-buffering black frame.
 function renderGagButton() {
-  const gag = uiState === 'browse' && !gagPlaying && GAGS[SCENES[sceneIndex].id];
+  const gag = uiState === 'running' && !gagPlaying && GAGS[SCENES[sceneIndex].id];
   gagBtn.classList.toggle('hidden', !gag);
   if (gag) {
     ensureGagVideo();
@@ -311,7 +311,9 @@ function cancelGag() {
 let swipeStart = null;
 
 window.addEventListener('pointerdown', (event) => {
-  wake();
+  // The gag trigger deliberately doesn't wake the resting UI — the scene
+  // should stay uncluttered while the interruption plays out.
+  if (!event.target.closest('.gag-btn')) wake();
   if (uiState === 'browse' && !event.target.closest('button')) {
     swipeStart = { x: event.clientX, y: event.clientY };
   }

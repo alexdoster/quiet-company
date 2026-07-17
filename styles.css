@@ -282,17 +282,24 @@ body {
   font-size: 16px;
 }
 
-/* Portals-App gag prototype trigger — deliberately quiet next to Begin */
+/* Portals-App gag prototype trigger — lives on the session screen and,
+   unlike the other controls, stays faintly pressable while the UI rests
+   (same glance-level treatment as the dimmed countdown). */
 
 .gag-btn {
   display: block;
-  margin: 12px auto 0;
+  margin: 14px auto 0;
   padding: 8px 18px;
   font-size: 13px;
+  transition: opacity 0.9s var(--ease);
 }
 
 .gag-btn.hidden {
   display: none;
+}
+
+.resting .gag-btn {
+  opacity: 0.28;
 }
 
 /* ---------- Setup panel ---------- */
