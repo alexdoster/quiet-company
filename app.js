@@ -5,7 +5,7 @@
 // Bump alongside CACHE in sw.js on every deploy — this is the only
 // user-visible confirmation that a phone has picked up the latest build
 // (shown small, bottom-right, home screen only).
-const APP_VERSION = 13;
+const APP_VERSION = 14;
 
 const SCENES = [
   { id: 'monk', label: 'Temple', src: 'assets/video/monk-temple-breathing-v1.mp4', card: 'assets/img/card-monk.jpg' },
@@ -113,10 +113,9 @@ const muteBtn = $('#mute');
 const gagBtn = $('#gag');
 const cardGridEl = $('#card-grid');
 const toHomeBtn = $('#to-home');
-const ambienceRowEl = $('#ambience-row');
-const ambienceToggle = $('#ambience-toggle');
-const musicPillsEl = $('#music-pills');
-const musicNowEl = $('#music-now');
+const ambienceFieldEl = $('#ambience-field');
+const ambienceSelect = $('#ambience-select');
+const musicSelect = $('#music-select');
 const musicCreditEl = $('.music-credit');
 
 /* ---------- Persistence ---------- */
@@ -500,19 +499,40 @@ $('#custom-minus').addEventListener('click', () => nudgeCustom(-1));
 $('#custom-plus').addEventListener('click', () => nudgeCustom(1));
 
 /* ---------- Sound picker (all scenes, everything off by default) ----------
-   One unified section on the setup screen: an ambience toggle (the
-   scene's matched bed, shown only where a bed exists) plus the music
-   mood pills, now offered on every scene. Both default to off — sound
-   is opt-in per Alex's call; the start/end chimes are a timer function,
-   not ambience, so they stay on (governed only by the global mute).
-   Music pills: one tap picks a mood (its first track); tapping the
-   already-selected mood again cycles to the alternate track in that
-   mood — keeps the visible control to 4 pills (same footprint as the
-   duration row) while still offering a real choice per category. */
+   One unified section on the setup screen, as two native dropdowns —
+   compact enough for landscape phones (the pill rows this replaced
+   pushed Back/Start off the bottom edge there), and iOS renders them
+   as its native wheel picker. Ambience offers Off / the scene's
+   matched bed, shown only where a bed exists; Music lists all six
+   tracks grouped by mood via optgroups (the old tap-again-to-cycle
+   trick isn't needed when a dropdown can just show everything). Both
+   default to off — sound is opt-in per Alex's call; the start/end
+   chimes are a timer function, not ambience, so they stay on
+   (governed only by the global mute). */
 
 let ambienceOn = store.get('ambienceOn', false);
 let musicCategory = store.get('musicCategory', 'none');
 let musicTrackIndex = store.get('musicTrackIndex', 0);
+
+// Music options are built once from MUSIC; option values are
+// "category:trackIndex" so one select carries both stored keys.
+{
+  const none = document.createElement('option');
+  none.value = 'none';
+  none.textContent = 'None';
+  musicSelect.appendChild(none);
+  for (const group of MUSIC) {
+    const optgroup = document.createElement('optgroup');
+    optgroup.label = group.label;
+    group.tracks.forEach((track, i) => {
+      const option = document.createElement('option');
+      option.value = `${group.id}:${i}`;
+      option.textContent = track.label;
+      optgroup.appendChild(option);
+    });
+    musicSelect.appendChild(optgroup);
+  }
+}
 
 function currentMusicTrack() {
   const group = MUSIC.find((c) => c.id === musicCategory);
@@ -521,38 +541,28 @@ function currentMusicTrack() {
 
 function renderSound() {
   const bed = AMBIENCE[SCENES[sceneIndex].id];
-  ambienceRowEl.classList.toggle('hidden', !bed);
+  ambienceFieldEl.classList.toggle('hidden', !bed);
   if (bed) {
-    ambienceToggle.textContent = bed.label;
-    ambienceToggle.classList.toggle('selected', ambienceOn);
-    ambienceToggle.setAttribute('aria-pressed', String(ambienceOn));
+    ambienceSelect.options[1].textContent = bed.label;
+    ambienceSelect.value = ambienceOn ? 'on' : 'off';
   }
 
-  for (const btn of musicPillsEl.children) {
-    btn.classList.toggle('selected', btn.dataset.cat === musicCategory);
-  }
-  const track = currentMusicTrack();
-  musicNowEl.textContent = track ? track.label : '';
-  musicCreditEl.classList.toggle('visible', !!track);
+  const group = MUSIC.find((c) => c.id === musicCategory);
+  musicSelect.value = group
+    ? `${musicCategory}:${musicTrackIndex % group.tracks.length}`
+    : 'none';
+  musicCreditEl.classList.toggle('visible', !!group);
 }
 
-ambienceToggle.addEventListener('click', () => {
-  ambienceOn = !ambienceOn;
+ambienceSelect.addEventListener('change', () => {
+  ambienceOn = ambienceSelect.value === 'on';
   store.set('ambienceOn', ambienceOn);
-  renderSound();
 });
 
-musicPillsEl.addEventListener('click', (event) => {
-  const btn = event.target.closest('.music-cat');
-  if (!btn) return;
-  const cat = btn.dataset.cat;
-  if (cat === musicCategory && cat !== 'none') {
-    const group = MUSIC.find((c) => c.id === cat);
-    musicTrackIndex = (musicTrackIndex + 1) % group.tracks.length;
-  } else {
-    musicCategory = cat;
-    musicTrackIndex = 0;
-  }
+musicSelect.addEventListener('change', () => {
+  const [cat, index] = musicSelect.value.split(':');
+  musicCategory = cat;
+  musicTrackIndex = Number(index) || 0;
   store.set('musicCategory', musicCategory);
   store.set('musicTrackIndex', musicTrackIndex);
   renderSound();

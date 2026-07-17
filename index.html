@@ -64,16 +64,19 @@
         </div>
         <div id="sound" class="sound-section">
           <p class="prompt-sub">Sound</p>
-          <div id="ambience-row" class="durations hidden">
-            <button id="ambience-toggle" class="pill sound-toggle" aria-pressed="false">Ambience</button>
+          <div class="sound-rows">
+            <label id="ambience-field" class="select-field hidden">
+              <span class="select-label">Ambience</span>
+              <select id="ambience-select">
+                <option value="off">Off</option>
+                <option value="on">On</option>
+              </select>
+            </label>
+            <label class="select-field">
+              <span class="select-label">Music</span>
+              <select id="music-select"></select>
+            </label>
           </div>
-          <div id="music-pills" class="durations" role="group" aria-label="Music mood">
-            <button class="pill music-cat" data-cat="restorative">Restorative</button>
-            <button class="pill music-cat" data-cat="flow">Flow</button>
-            <button class="pill music-cat" data-cat="vinyasa">Vinyasa</button>
-            <button class="pill music-cat" data-cat="none">No music</button>
-          </div>
-          <p id="music-now" class="music-now"></p>
           <p class="music-credit">Music by Scott Buckley &mdash; CC BY 4.0</p>
         </div>
         <div class="setup-actions">
