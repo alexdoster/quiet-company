@@ -282,6 +282,19 @@ body {
   font-size: 16px;
 }
 
+/* Portals-App gag prototype trigger — deliberately quiet next to Begin */
+
+.gag-btn {
+  display: block;
+  margin: 12px auto 0;
+  padding: 8px 18px;
+  font-size: 13px;
+}
+
+.gag-btn.hidden {
+  display: none;
+}
+
 /* ---------- Setup panel ---------- */
 
 .prompt {

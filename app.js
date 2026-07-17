@@ -5,7 +5,7 @@
 // Bump alongside CACHE in sw.js on every deploy — this is the only
 // user-visible confirmation that a phone has picked up the latest build
 // (shown small, bottom-right, home screen only).
-const APP_VERSION = 10;
+const APP_VERSION = 11;
 
 const SCENES = [
   { id: 'monk', label: 'Temple', src: 'assets/video/monk-temple-breathing-v1.mp4' },
@@ -14,6 +14,14 @@ const SCENES = [
   { id: 'hammock', label: 'Hammock', src: 'assets/video/hammock-sleep-v1.mp4' },
   { id: 'horizon', label: 'Horizon', src: 'assets/video/horizon-gaze-v1.mp4' },
 ];
+
+// Portals-App gag prototype (button-triggered, browse mode only): the gag
+// clip crossfades in over the scene's loop, plays once, and fades back out
+// to its outro scene — the loop keeps running underneath the whole time.
+// On loan like the Hammock/Horizon scenes themselves; may be removed.
+const GAGS = {
+  hammock: { src: 'assets/video/monkey-briefcase-gag-v1.mp4', outro: 'hammock' },
+};
 
 // Ambient beds per scene, played only during a session (not while browsing).
 // Real recordings, not born-loopable — AmbienceEngine crossfades overlapping
@@ -99,6 +107,7 @@ const customValue = $('#custom-value');
 const countdownEl = $('#countdown');
 const pauseBtn = $('#pause');
 const muteBtn = $('#mute');
+const gagBtn = $('#gag');
 const soundtrackEl = $('#soundtrack');
 const musicPillsEl = $('#music-pills');
 const musicNowEl = $('#music-now');
@@ -138,6 +147,8 @@ function setUIState(state) {
     state === 'running' || state === 'paused'
   );
   panels.complete.classList.toggle('visible', state === 'complete');
+  if (state !== 'browse') cancelGag();
+  renderGagButton();
   scheduleRest();
 }
 
@@ -186,6 +197,8 @@ function setScene(index, { animateName = false } = {}) {
   sceneIndex = (index + SCENES.length) % SCENES.length;
   const scene = SCENES[sceneIndex];
   store.set('scene', scene.id);
+  cancelGag();
+  renderGagButton();
 
   // Active scene plus both neighbors, so a swipe lands on a warm video
   ensureVideoLoaded(sceneIndex);
@@ -224,6 +237,73 @@ function changeScene(step) {
 
 function playActiveVideo() {
   videos.get(SCENES[sceneIndex].id)?.play().catch(() => {});
+}
+
+/* ---------- Gag playback (Portals-App prototype) ----------
+   The scene's loop is never paused — the gag rides on top as one more
+   .scene-video element, so the existing 1.2s opacity crossfade handles
+   both the fade-in and the fade-back-out for free. */
+
+let gagVideo = null;
+let gagPlaying = false;
+
+function ensureGagVideo() {
+  if (gagVideo) return;
+  gagVideo = document.createElement('video');
+  gagVideo.muted = true;
+  gagVideo.playsInline = true;
+  gagVideo.setAttribute('playsinline', '');
+  gagVideo.preload = 'auto';
+  gagVideo.className = 'scene-video'; // appended last, so it sits on top
+  gagVideo.addEventListener('ended', endGag);
+  gagVideo.addEventListener('error', cancelGag);
+  stage.appendChild(gagVideo);
+}
+
+// Show the button only where a gag exists; warm the clip so the press
+// doesn't open on a still-buffering black frame.
+function renderGagButton() {
+  const gag = uiState === 'browse' && !gagPlaying && GAGS[SCENES[sceneIndex].id];
+  gagBtn.classList.toggle('hidden', !gag);
+  if (gag) {
+    ensureGagVideo();
+    if (gagVideo.src !== new URL(gag.src, location.href).href) {
+      gagVideo.src = gag.src;
+    }
+  }
+}
+
+function playGag() {
+  const gag = GAGS[SCENES[sceneIndex].id];
+  if (!gag || gagPlaying) return;
+  gagPlaying = true;
+  renderGagButton();
+  ensureGagVideo();
+  gagVideo.currentTime = 0;
+  gagVideo.play().catch(cancelGag);
+  gagVideo.classList.add('active');
+}
+
+// Natural end: fade out to the gag's designated outro scene (which may be
+// the scene it interrupted — for the monkey, the sleeper never woke).
+function endGag() {
+  const gag = GAGS[SCENES[sceneIndex].id];
+  gagPlaying = false;
+  gagVideo.classList.remove('active');
+  const outroIndex = gag ? SCENES.findIndex((s) => s.id === gag.outro) : -1;
+  if (outroIndex >= 0 && outroIndex !== sceneIndex) {
+    setScene(outroIndex, { animateName: true });
+  }
+  renderGagButton();
+}
+
+// Interruption (scene swipe, leaving browse, playback error): just drop
+// the overlay, no outro logic.
+function cancelGag() {
+  if (!gagVideo) return;
+  gagPlaying = false;
+  gagVideo.classList.remove('active');
+  gagVideo.pause();
 }
 
 /* Swipe to browse (browse state only) */
@@ -440,6 +520,8 @@ $('#choose').addEventListener('click', () => {
 
 $('#back').addEventListener('click', () => setUIState('browse'));
 
+gagBtn.addEventListener('click', playGag);
+
 $('#begin').addEventListener('click', () => {
   ensureAudio();
   startSession(selectedChoice === 'custom' ? customMinutes : selectedChoice);
@@ -469,6 +551,7 @@ function releaseWakeLock() {
 document.addEventListener('visibilitychange', () => {
   if (document.visibilityState !== 'visible') return;
   playActiveVideo();
+  if (gagPlaying) gagVideo.play().catch(cancelGag);
   if (audioCtx?.state === 'suspended') audioCtx.resume();
   if (uiState === 'running') {
     acquireWakeLock();
