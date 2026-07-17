@@ -5,7 +5,7 @@
 // Bump alongside CACHE in sw.js on every deploy — this is the only
 // user-visible confirmation that a phone has picked up the latest build
 // (shown small, bottom-right, home screen only).
-const APP_VERSION = 14;
+const APP_VERSION = 15;
 
 const SCENES = [
   { id: 'monk', label: 'Temple', src: 'assets/video/monk-temple-breathing-v1.mp4', card: 'assets/img/card-monk.jpg' },
@@ -648,7 +648,9 @@ function setMuted(next) {
   if (masterGain) {
     masterGain.gain.setTargetAtTime(muted ? 0 : 1, audioCtx.currentTime, 0.15);
   }
-  if (musicAudio) musicAudio.volume = muted ? 0 : MUSIC_VOLUME;
+  // .muted, not .volume — iOS Safari ignores volume writes on media
+  // elements (read-only there), which left music audible through mute
+  if (musicAudio) musicAudio.muted = muted;
 }
 
 muteBtn.addEventListener('click', () => {
@@ -699,7 +701,8 @@ function startMusic(src) {
   stopMusic();
   musicAudio = new Audio(src);
   musicAudio.loop = true;
-  musicAudio.volume = muted ? 0 : MUSIC_VOLUME;
+  musicAudio.volume = MUSIC_VOLUME; // level only — no-op on iOS, fine
+  musicAudio.muted = muted;
   musicAudio.play().catch(() => {});
 }
 
