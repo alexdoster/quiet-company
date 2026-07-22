@@ -1,6 +1,6 @@
 'use strict';
 
-const CACHE = 'quiet-company-v23';
+const CACHE = 'quiet-company-v25';
 
 // Small, reliable app-shell files only. Video/audio used to be listed
 // here too, but eagerly downloading tens of MB during install is exactly
@@ -30,6 +30,7 @@ const PRECACHE = [
   './assets/img/card-leopard.jpg',
   './assets/img/card-photoreal.jpg',
   './assets/img/card-rooftop.jpg',
+  './assets/img/card-android.jpg',
   './assets/img/card-hammock.jpg',
   './assets/img/card-horizon.jpg',
 ];

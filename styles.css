@@ -669,6 +669,50 @@ body[data-countdown="never"] .countdown:not(.prep) {
   opacity: 0;
 }
 
+/* Clock position (Settings). "Auto" keeps the built-in behaviour — centred
+   normally, docked top-left on a landscape phone (see the media query
+   below). The explicit corner options apply in every orientation, for
+   scenes whose subject isn't centre-framed and so puts the default corner
+   over the character. Attribute + class beats the plain .countdown rules
+   in the media queries below regardless of source order. */
+
+body[data-clock="topleft"] .countdown,
+body[data-clock="topright"] .countdown {
+  position: fixed;
+  top: calc(env(safe-area-inset-top) + 14px);
+  margin: 0;
+  font-size: 28px;
+  font-weight: 300;
+  letter-spacing: 0.05em;
+}
+
+body[data-clock="topleft"] .countdown {
+  left: calc(env(safe-area-inset-left) + 22px);
+}
+
+body[data-clock="topright"] .countdown {
+  right: calc(env(safe-area-inset-right) + 22px);
+}
+
+/* With the clock out of the panel flow, Pause/End would otherwise ride at
+   the top of the shared grid cell (stretched by the taller hidden setup
+   panel) — right under the character's chin. */
+body[data-clock="topleft"] #session,
+body[data-clock="topright"] #session {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+}
+
+/* The mute toggle already owns the top-right corner, so a clock docked
+   there would sit on top of it. Flip the header row for the duration of a
+   session — "‹ Scenes" is hidden in these states anyway, so the only
+   visible effect is the mute button moving to the left. */
+body[data-clock="topright"] .state-running .top,
+body[data-clock="topright"] .state-paused .top {
+  flex-direction: row-reverse;
+}
+
 .resting .session-controls,
 .resting .top {
   opacity: 0;
@@ -895,8 +939,11 @@ body[data-countdown="never"] .countdown:not(.prep) {
    are reliably background across the roster, no per-scene tuning.
    Must follow the max-height block above so these sizes win when both
    queries match. */
+/* Scoped to "Auto" — an explicit corner choice already docks the clock in
+   every orientation above, and "Centered" means the user asked for the
+   centred layout even here. */
 @media (max-height: 520px) and (orientation: landscape) {
-  .countdown {
+  body[data-clock="auto"] .countdown {
     position: fixed;
     top: calc(env(safe-area-inset-top) + 14px);
     left: calc(env(safe-area-inset-left) + 22px);
@@ -909,7 +956,7 @@ body[data-countdown="never"] .countdown:not(.prep) {
   /* With the clock out of the flow, Pause/End would ride at the top of
      the panel cell (stretched by the taller hidden setup panel) — right
      under the character's chin. Pin them to the bottom edge instead. */
-  #session {
+  body[data-clock="auto"] #session {
     display: flex;
     flex-direction: column;
     justify-content: flex-end;

@@ -5,7 +5,7 @@
 // Bump alongside CACHE in sw.js on every deploy — this is the only
 // user-visible confirmation that a phone has picked up the latest build
 // (shown small, bottom-right, home screen only).
-const APP_VERSION = 23;
+const APP_VERSION = 25;
 
 // Scene labels are provisional placeholders — Alex finalizes the names.
 const SCENES = [
@@ -20,6 +20,11 @@ const SCENES = [
   { id: 'leopard', label: 'Leopard', src: 'assets/video/leopard-royalty-breathing-v1.mp4', card: 'assets/img/card-leopard.jpg', objectPosition: 'center top' },
   { id: 'photoreal', label: 'Sunlight', src: 'assets/video/photoreal-woman-breathing-v1.mp4', card: 'assets/img/card-photoreal.jpg', objectPosition: 'center top' },
   { id: 'rooftop', label: 'Rooftop', src: 'assets/video/rooftop-city-breathing-v1.mp4', card: 'assets/img/card-rooftop.jpg' },
+  // Sits left of centre rather than centred, and its head is very high in
+  // frame (~4% down), so it needs the same 'center top' crop as Leopard
+  // and Sunlight. Note the off-centre framing also breaks the assumption
+  // behind the v17 landscape corner clock (see CLAUDE.md).
+  { id: 'android', label: 'Android', src: 'assets/video/android-room-breathing-v1.mp4', card: 'assets/img/card-android.jpg', objectPosition: 'center top' },
   // On loan from Portals-App for desk-companion testing + live Portals demo — pinned to bottom
   { id: 'hammock', label: 'Hammock', src: 'assets/video/hammock-sleep-v1.mp4', card: 'assets/img/card-hammock.jpg' },
   { id: 'horizon', label: 'Horizon', src: 'assets/video/horizon-gaze-v1.mp4', card: 'assets/img/card-horizon.jpg' },
@@ -164,6 +169,8 @@ const settingsSheet = $('#settings-sheet');
 const soundSheet = $('#sound-sheet');
 const countdownSelect = $('#countdown-select');
 const countdownNoteEl = $('#countdown-note');
+const clockSelect = $('#clock-select');
+const clockNoteEl = $('#clock-note');
 const bellsSelect = $('#bells-select');
 const prepSelect = $('#prep-select');
 
@@ -883,7 +890,18 @@ const COUNTDOWN_NOTES = {
 // Defaults to 'always': a first-run screen with no clock on it reads as
 // missing functionality rather than as a deliberate setting. Hiding it is
 // opt-in, found once the user goes looking.
+const CLOCK_NOTES = {
+  auto: 'Centered, or docked top-left on a landscape phone.',
+  center: 'Always centered above the controls.',
+  topleft: 'Docked top-left in any orientation.',
+  topright: 'Docked top-right; the sound button moves left during a session.',
+};
+
 let countdownMode = store.get('countdownMode', 'always');
+// Every scene's subject is centre-framed by design, so the corners are
+// normally background — but not all of them are (Android sits left of
+// centre), hence a manual override for the clock's corner.
+let clockPosition = store.get('clockPosition', 'auto');
 let intervalBellMs = store.get('intervalBellMinutes', 0) * 60000;
 let prepSeconds = store.get('prepSeconds', 0);
 
@@ -893,6 +911,9 @@ function applySettings() {
   document.body.dataset.countdown = countdownMode;
   countdownNoteEl.textContent = COUNTDOWN_NOTES[countdownMode];
   countdownSelect.value = countdownMode;
+  document.body.dataset.clock = clockPosition;
+  clockNoteEl.textContent = CLOCK_NOTES[clockPosition];
+  clockSelect.value = clockPosition;
   bellsSelect.value = String(intervalBellMs / 60000);
   prepSelect.value = String(prepSeconds);
 }
@@ -900,6 +921,12 @@ function applySettings() {
 countdownSelect.addEventListener('change', () => {
   countdownMode = countdownSelect.value;
   store.set('countdownMode', countdownMode);
+  applySettings();
+});
+
+clockSelect.addEventListener('change', () => {
+  clockPosition = clockSelect.value;
+  store.set('clockPosition', clockPosition);
   applySettings();
 });
 
