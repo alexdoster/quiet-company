@@ -5,7 +5,7 @@
 // Bump alongside CACHE in sw.js on every deploy — this is the only
 // user-visible confirmation that a phone has picked up the latest build
 // (shown small, bottom-right, home screen only).
-const APP_VERSION = 20;
+const APP_VERSION = 21;
 
 // Scene labels are provisional placeholders — Alex finalizes the names.
 const SCENES = [
@@ -13,8 +13,12 @@ const SCENES = [
   { id: 'yoga', label: 'Studio', src: 'assets/video/yoga-studio-breathing-v1.mp4', card: 'assets/img/card-yoga.jpg' },
   { id: 'elf', label: 'Forest', src: 'assets/video/elf-forest-breathing-v1.mp4', card: 'assets/img/card-elf.jpg' },
   { id: 'hearth', label: 'Hearth', src: 'assets/video/hearth-fire-v1.mp4', card: 'assets/img/card-hearth.jpg' },
-  { id: 'leopard', label: 'Leopard', src: 'assets/video/leopard-royalty-breathing-v1.mp4', card: 'assets/img/card-leopard.jpg' },
-  { id: 'photoreal', label: 'Sunlight', src: 'assets/video/photoreal-woman-breathing-v1.mp4', card: 'assets/img/card-photoreal.jpg' },
+  // objectPosition 'center top' keeps a high-in-frame head/subject from
+  // being clipped when object-fit: cover crops top+bottom on a landscape
+  // viewport wider than the 16:9 clip — all the vertical crop goes to the
+  // bottom (lap/ground) instead. No effect in portrait (crop goes sideways).
+  { id: 'leopard', label: 'Leopard', src: 'assets/video/leopard-royalty-breathing-v1.mp4', card: 'assets/img/card-leopard.jpg', objectPosition: 'center top' },
+  { id: 'photoreal', label: 'Sunlight', src: 'assets/video/photoreal-woman-breathing-v1.mp4', card: 'assets/img/card-photoreal.jpg', objectPosition: 'center top' },
   { id: 'rooftop', label: 'Rooftop', src: 'assets/video/rooftop-city-breathing-v1.mp4', card: 'assets/img/card-rooftop.jpg' },
   // On loan from Portals-App for desk-companion testing + live Portals demo — pinned to bottom
   { id: 'hammock', label: 'Hammock', src: 'assets/video/hammock-sleep-v1.mp4', card: 'assets/img/card-hammock.jpg' },
@@ -206,6 +210,7 @@ for (const scene of SCENES) {
   video.setAttribute('playsinline', '');
   video.preload = 'auto';
   video.className = 'scene-video';
+  if (scene.objectPosition) video.style.objectPosition = scene.objectPosition;
   video.addEventListener('error', () => video.classList.add('missing'));
   stage.appendChild(video);
   videos.set(scene.id, video);
@@ -398,6 +403,7 @@ function fireVariant() {
   clearTimeout(variantFadeTimer);
   ensureVariantVideo();
   variantActive = true;
+  variantVideo.style.objectPosition = SCENES[sceneIndex].objectPosition || '';
   variantVideo.src = pool[Math.floor(Math.random() * pool.length)];
   variantVideo.currentTime = 0;
   // Start the crossfade only once playback has actually begun, so a
