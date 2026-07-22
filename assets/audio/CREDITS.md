@@ -44,6 +44,28 @@ imitate.
 | `yoga-vinyasa-born-of-the-sky.mp3` | Vinyasa / Active Flow | https://www.scottbuckley.com.au/library/born-of-the-sky/ |
 | `yoga-vinyasa-convergence.mp3` | Vinyasa / Active Flow | https://www.scottbuckley.com.au/library/convergence/ |
 
+## Homemade slow-piano tracks (added 2026-07-22)
+
+Anything exported from `../../../music/studio.html` is built from two
+things, and only one of them carries an obligation:
+
+- **The composition** — public domain, published 1930 or earlier. No
+  credit required. Sources tracked in `../../../music/melodies.md`.
+- **The piano samples** — Salamander Grand Piano V3 by Alexander Holm,
+  [CC BY 3.0](https://creativecommons.org/licenses/by/3.0/).
+  **Attribution required.** The license has no carve-out exempting works
+  made using the samples, so any track exported from that tool and
+  shipped in the app needs this credit.
+
+Required credit:
+> Piano samples from Salamander Grand Piano V3 by Alexander Holm,
+> licensed CC BY 3.0. https://github.com/sfzinstruments/SalamanderGrandPiano
+
+No such track ships yet — this section is here so the obligation is
+recorded before one does, not after.
+
+---
+
 Unlike the ambient beds above, these are full compositions with real
 musical structure, not loop-scheduled texture — played as whole tracks
 via a plain `<audio loop>` element, not `AmbienceEngine`. Not precached
