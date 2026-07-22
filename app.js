@@ -5,12 +5,18 @@
 // Bump alongside CACHE in sw.js on every deploy — this is the only
 // user-visible confirmation that a phone has picked up the latest build
 // (shown small, bottom-right, home screen only).
-const APP_VERSION = 19;
+const APP_VERSION = 20;
 
+// Scene labels are provisional placeholders — Alex finalizes the names.
 const SCENES = [
   { id: 'monk', label: 'Temple', src: 'assets/video/monk-temple-breathing-v1.mp4', card: 'assets/img/card-monk.jpg' },
   { id: 'yoga', label: 'Studio', src: 'assets/video/yoga-studio-breathing-v1.mp4', card: 'assets/img/card-yoga.jpg' },
-  // On loan from Portals-App for desk-companion testing — may be removed
+  { id: 'elf', label: 'Forest', src: 'assets/video/elf-forest-breathing-v1.mp4', card: 'assets/img/card-elf.jpg' },
+  { id: 'hearth', label: 'Hearth', src: 'assets/video/hearth-fire-v1.mp4', card: 'assets/img/card-hearth.jpg' },
+  { id: 'leopard', label: 'Leopard', src: 'assets/video/leopard-royalty-breathing-v1.mp4', card: 'assets/img/card-leopard.jpg' },
+  { id: 'photoreal', label: 'Sunlight', src: 'assets/video/photoreal-woman-breathing-v1.mp4', card: 'assets/img/card-photoreal.jpg' },
+  { id: 'rooftop', label: 'Rooftop', src: 'assets/video/rooftop-city-breathing-v1.mp4', card: 'assets/img/card-rooftop.jpg' },
+  // On loan from Portals-App for desk-companion testing + live Portals demo — pinned to bottom
   { id: 'hammock', label: 'Hammock', src: 'assets/video/hammock-sleep-v1.mp4', card: 'assets/img/card-hammock.jpg' },
   { id: 'horizon', label: 'Horizon', src: 'assets/video/horizon-gaze-v1.mp4', card: 'assets/img/card-horizon.jpg' },
 ];
@@ -22,6 +28,26 @@ const SCENES = [
 const GAGS = {
   hammock: { src: 'assets/video/monkey-briefcase-gag-v1.mp4', outro: 'hammock' },
 };
+
+// Secondary breathing loops per scene. During a running session, at each
+// elapsed-minute boundary, a scene with variants crossfades one in over
+// its default loop, holds it ~2 breath cycles, then crossfades back to
+// the default. Doubles as a subtle "you've hit a minute" marker for
+// anyone tracking time; invisible to anyone dropped in deep. Scenes with
+// no entry here (yoga, hearth, leopard) simply never pop in — accepted
+// gap for now, may rerun those stills to give them variants later.
+const VARIANTS = {
+  monk: [
+    'assets/video/monk-temple-breathing-v2.mp4',
+    'assets/video/monk-temple-breathing-v3.mp4',
+  ],
+  elf: ['assets/video/elf-forest-breathing-v2.mp4'],
+  photoreal: ['assets/video/photoreal-woman-breathing-v2.mp4'],
+  rooftop: ['assets/video/rooftop-city-breathing-v2.mp4'],
+};
+const MARKER_INTERVAL_MS = 60000; // one pop-in per elapsed minute of session time
+const VARIANT_HOLD_MS = 10000; // ~2 breath loops on the variant before returning
+const VARIANT_FADE_MS = 2000; // must match the .variant-video CSS crossfade
 
 // Ambient beds per scene, played only during a session (not while browsing).
 // Real recordings, not born-loopable — AmbienceEngine crossfades overlapping
@@ -84,58 +110,6 @@ const MUSIC = [
 ];
 const MUSIC_VOLUME = 0.55;
 
-// Expansion review (testing tool, may be removed): every candidate still
-// awaiting Kling processing, downscaled to assets/expansion/, so Alex
-// can flip through them on his phone and prioritize animation order.
-// Excludes the already-animated monk/yoga source stills. Filenames are
-// the labels — they match the batch findings docs.
-const EXPANSION = [
-  'Alien',
-  'alien-pod-accidental-eyes-open-v1',
-  'alien-pod-still-v2-eyes-closed-rounder',
-  'alien-pod-still-v2-eyes-closed-smooth',
-  'alien-pod-still-v3-eyes-closed-teal',
-  'alpine-lake-still-v1',
-  'campfire-alternate-v1',
-  'campfire-alternate-v2-refined-LOCKED',
-  'campfire-alternate-v2',
-  'campfire-standard-hooded-v1',
-  'campfire-standard-scarf-v1',
-  'candle-still-v2-photoreal',
-  'dog-hearth-still-v1-sitting-full-scene',
-  'dog-hearth-still-v2-puppy-closeup',
-  'dog-hearth-still-v3-lying-closeup',
-  'dog-meditation-pose-still-v1',
-  'druid-glade-still-v1-copper-braids',
-  'druid-glade-still-v2-white-sleeves',
-  'druid-glade-still-v3-blonde-mossy',
-  'hearth-fire-still-v1-wide-arch',
-  'hearth-fire-still-v2-tight-logs',
-  'incense-bowl-still-v1-tight-crop',
-  'incense-bowl-still-v2-wide-shot',
-  'incense-macro-still-v1-angled-driftwood',
-  'leopard-royalty-still-v1',
-  'light-vortex-still-v1-wide-warm',
-  'light-vortex-still-v2-tight-cool',
-  'rain-window-still-v1',
-  'rooftop-alternate-still-v1',
-  'rooftop-standard-still-v1-v-neck',
-  'rooftop-standard-still-v2-open-shirt',
-  'steampunk-deck-still-v1-porthole-halo',
-  'steampunk-deck-still-v2-maroon-symmetry',
-  'steampunk-deck-still-v3-topknot-teal',
-  'sunrise-meadow-still-v1',
-  'teahouse-alternate-profile-v1',
-  'teahouse-standard-still-v1',
-  'teahouse-standard-still-v2',
-  'water-silhouette-still-v1',
-  'waterfall-alternate-still-v1',
-  'yoga-photoreal-v1',
-  'zen-garden-still-v2-closest-swirl',
-  'zen-garden-still-v2-diagonal-haze',
-  'zen-garden-still-v2-wide-standing-stones',
-];
-
 const CUSTOM_DEFAULT = 20;
 const CUSTOM_MIN = 1;
 const CUSTOM_MAX = 120;
@@ -192,14 +166,13 @@ const store = {
 
 /* ---------- UI state ---------- */
 
-let uiState = 'home'; // home | expansion | browse | setup | running | paused | complete
+let uiState = 'home'; // home | browse | setup | running | paused | complete
 
 function setUIState(state) {
   uiState = state;
   ui.className = 'state-' + state;
   document.body.classList.toggle('at-home', state === 'home');
-  document.body.classList.toggle('at-expansion', state === 'expansion');
-  if (state === 'home' || state === 'expansion') pauseAllVideos();
+  if (state === 'home') pauseAllVideos();
   panels.browse.classList.toggle('visible', state === 'browse');
   panels.setup.classList.toggle('visible', state === 'setup');
   panels.session.classList.toggle(
@@ -207,7 +180,10 @@ function setUIState(state) {
     state === 'running' || state === 'paused'
   );
   panels.complete.classList.toggle('visible', state === 'complete');
-  if (state !== 'running') cancelGag();
+  if (state !== 'running') {
+    cancelGag();
+    cancelVariant();
+  }
   renderGagButton();
   scheduleRest();
 }
@@ -280,6 +256,7 @@ function setScene(index, { animateName = false } = {}) {
   const scene = SCENES[sceneIndex];
   store.set('scene', scene.id);
   cancelGag();
+  cancelVariant();
   renderGagButton();
 
   // Active scene plus both neighbors, so a swipe lands on a warm video
@@ -388,6 +365,78 @@ function cancelGag() {
   gagVideo.pause();
 }
 
+/* ---------- Variant pop-in (minute marker) ----------
+   Same overlay trick as the gag: the default loop is never paused — the
+   variant rides on top as one more .scene-video and crossfades in/out,
+   so the default is always the home base returned to. The variant loops
+   for its hold rather than playing once, and a timer (not an 'ended'
+   event) triggers the return; no outro scene change. Uses a 2s crossfade
+   (.variant-video) rather than the gag's 1.2s, for a gentler in-session
+   transition. */
+
+let variantVideo = null;
+let variantActive = false;
+let variantHoldTimer = null;
+let variantFadeTimer = null;
+
+function ensureVariantVideo() {
+  if (variantVideo) return;
+  variantVideo = document.createElement('video');
+  variantVideo.muted = true;
+  variantVideo.loop = true;
+  variantVideo.playsInline = true;
+  variantVideo.setAttribute('playsinline', '');
+  variantVideo.preload = 'auto';
+  variantVideo.className = 'scene-video variant-video'; // appended last, sits on top
+  variantVideo.addEventListener('error', cancelVariant);
+  stage.appendChild(variantVideo);
+}
+
+function fireVariant() {
+  const pool = VARIANTS[SCENES[sceneIndex].id];
+  if (!pool || !pool.length || variantActive || gagPlaying) return;
+  clearTimeout(variantFadeTimer);
+  ensureVariantVideo();
+  variantActive = true;
+  variantVideo.src = pool[Math.floor(Math.random() * pool.length)];
+  variantVideo.currentTime = 0;
+  // Start the crossfade only once playback has actually begun, so a
+  // cold-cache first play can't fade in on a black/unbuffered frame
+  // (the v8 buffering-black-frame class of bug). If it was cancelled
+  // while buffering (scene left, session ended), don't reveal a stale one.
+  variantVideo.play().then(
+    () => {
+      if (!variantActive) return;
+      variantVideo.classList.add('active');
+      variantHoldTimer = setTimeout(endVariant, VARIANT_HOLD_MS);
+    },
+    cancelVariant
+  );
+}
+
+// Natural return: crossfade back to the base default (which never stopped
+// looping underneath), then pause the overlay once the fade completes so
+// two videos aren't left decoding.
+function endVariant() {
+  if (!variantActive) return;
+  clearTimeout(variantHoldTimer);
+  variantVideo.classList.remove('active');
+  variantFadeTimer = setTimeout(() => {
+    variantVideo.pause();
+    variantActive = false;
+  }, VARIANT_FADE_MS);
+}
+
+// Hard cancel (any exit from running, scene change): drop it now.
+function cancelVariant() {
+  if (!variantVideo) return;
+  clearTimeout(variantHoldTimer);
+  clearTimeout(variantFadeTimer);
+  variantVideo.classList.remove('active');
+  variantVideo.pause();
+  variantActive = false;
+}
+
 /* Swipe to browse (browse state only) */
 
 let swipeStart = null;
@@ -396,10 +445,7 @@ window.addEventListener('pointerdown', (event) => {
   // The gag trigger deliberately doesn't wake the resting UI — the scene
   // should stay uncluttered while the interruption plays out.
   if (!event.target.closest('.gag-btn')) wake();
-  if (
-    (uiState === 'browse' || uiState === 'expansion') &&
-    !event.target.closest('button')
-  ) {
+  if (uiState === 'browse' && !event.target.closest('button')) {
     swipeStart = { x: event.clientX, y: event.clientY };
   }
 });
@@ -411,7 +457,6 @@ window.addEventListener('pointerup', (event) => {
   swipeStart = null;
   if (Math.abs(dx) >= SWIPE_MIN && Math.abs(dx) > Math.abs(dy) * 1.5) {
     if (uiState === 'browse') changeScene(dx < 0 ? 1 : -1);
-    if (uiState === 'expansion') showExpansion(expIndex + (dx < 0 ? 1 : -1));
   }
 });
 
@@ -420,7 +465,6 @@ window.addEventListener('keydown', (event) => {
     event.key === 'ArrowRight' ? 1 : event.key === 'ArrowLeft' ? -1 : 0;
   if (!step) return;
   if (uiState === 'browse') changeScene(step);
-  if (uiState === 'expansion') showExpansion(expIndex + step);
 });
 
 $('#nav-prev').addEventListener('click', () => changeScene(-1));
@@ -440,8 +484,25 @@ setInterval(() => {
   if (uiState !== 'running') return;
   timer.remainingMs = Math.max(0, timer.endAt - Date.now());
   renderCountdown();
-  if (timer.remainingMs <= 0) completeSession();
+  if (timer.remainingMs <= 0) {
+    completeSession();
+    return;
+  }
+  maybeFireMinuteMarker();
 }, 250);
+
+// Fire a variant pop-in each time session-elapsed time crosses a minute
+// boundary. Driven off elapsed = duration - remaining (not a free-running
+// interval) so it stays aligned to real meditation minutes and naturally
+// freezes while paused. Skipped too close to the end, where the hold
+// would be cut off by session completion.
+let lastMarkerMinute = 0;
+function maybeFireMinuteMarker() {
+  const minute = Math.floor((timer.durationMs - timer.remainingMs) / MARKER_INTERVAL_MS);
+  if (minute <= lastMarkerMinute) return;
+  lastMarkerMinute = minute;
+  if (timer.remainingMs > VARIANT_HOLD_MS + VARIANT_FADE_MS * 2) fireVariant();
+}
 
 function formatTime(ms) {
   const totalSeconds = Math.ceil(ms / 1000);
@@ -461,6 +522,7 @@ function startSession(minutes) {
   timer.durationMs = minutes * 60000;
   timer.remainingMs = timer.durationMs;
   timer.endAt = Date.now() + timer.durationMs;
+  lastMarkerMinute = 0;
   renderCountdown();
   pauseBtn.textContent = 'Pause';
   setUIState('running');
@@ -625,41 +687,6 @@ musicSelect.addEventListener('change', () => {
   store.set('musicTrackIndex', musicTrackIndex);
   renderSound();
 });
-
-/* ---------- Expansion viewer (testing tool, may be removed) ---------- */
-
-const expImage = $('#exp-image');
-const expCounter = $('#exp-counter');
-const expName = $('#exp-name');
-
-let expIndex = Math.min(
-  Math.max(0, store.get('expIndex', 0)),
-  EXPANSION.length - 1
-);
-
-function expSrc(index) {
-  return 'assets/expansion/' + EXPANSION[index] + '.jpg';
-}
-
-function showExpansion(index) {
-  expIndex = (index + EXPANSION.length) % EXPANSION.length;
-  store.set('expIndex', expIndex);
-  expImage.src = expSrc(expIndex);
-  expCounter.textContent = `${expIndex + 1} / ${EXPANSION.length}`;
-  expName.textContent = EXPANSION[expIndex].replace(/-/g, ' ');
-  // Warm both neighbors so a swipe lands on a loaded image
-  for (const delta of [1, -1]) {
-    new Image().src = expSrc((expIndex + delta + EXPANSION.length) % EXPANSION.length);
-  }
-}
-
-$('#expansion-entry').addEventListener('click', () => {
-  showExpansion(expIndex);
-  setUIState('expansion');
-});
-$('#exp-home').addEventListener('click', () => setUIState('home'));
-$('#exp-prev').addEventListener('click', () => showExpansion(expIndex - 1));
-$('#exp-next').addEventListener('click', () => showExpansion(expIndex + 1));
 
 /* ---------- Flow buttons ---------- */
 
@@ -963,7 +990,6 @@ muteBtn.classList.toggle('muted', muted);
 muteBtn.textContent = muted ? 'Muted' : 'Sound';
 muteBtn.setAttribute('aria-pressed', String(muted));
 $('#version').textContent = 'v' + APP_VERSION;
-$('.card-count').textContent = EXPANSION.length + ' stills';
 
 if ('serviceWorker' in navigator && location.protocol !== 'file:') {
   navigator.serviceWorker.register('sw.js').catch(() => {});

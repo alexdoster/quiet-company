@@ -1,6 +1,6 @@
 'use strict';
 
-const CACHE = 'quiet-company-v19';
+const CACHE = 'quiet-company-v20';
 
 // Small, reliable app-shell files only. Video/audio used to be listed
 // here too, but eagerly downloading tens of MB during install is exactly
@@ -25,6 +25,11 @@ const PRECACHE = [
   // screen that should never open with broken images.
   './assets/img/card-monk.jpg',
   './assets/img/card-yoga.jpg',
+  './assets/img/card-elf.jpg',
+  './assets/img/card-hearth.jpg',
+  './assets/img/card-leopard.jpg',
+  './assets/img/card-photoreal.jpg',
+  './assets/img/card-rooftop.jpg',
   './assets/img/card-hammock.jpg',
   './assets/img/card-horizon.jpg',
 ];
