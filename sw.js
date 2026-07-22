@@ -1,6 +1,6 @@
 'use strict';
 
-const CACHE = 'quiet-company-v28';
+const CACHE = 'quiet-company-v29';
 
 // Small, reliable app-shell files only. Video/audio used to be listed
 // here too, but eagerly downloading tens of MB during install is exactly
@@ -23,6 +23,7 @@ const PRECACHE = [
   // Home-screen card thumbnails — ~500KB total, nowhere near the ~20MB
   // media bulk that used to break installs; the landing grid is the one
   // screen that should never open with broken images.
+  './assets/img/card-morning.jpg',
   './assets/img/card-monk.jpg',
   './assets/img/card-yoga.jpg',
   './assets/img/card-elf.jpg',

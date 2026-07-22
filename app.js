@@ -5,10 +5,15 @@
 // Bump alongside CACHE in sw.js on every deploy — this is the only
 // user-visible confirmation that a phone has picked up the latest build
 // (shown small, bottom-right, home screen only).
-const APP_VERSION = 28;
+const APP_VERSION = 29;
 
 // Scene labels are provisional placeholders — Alex finalizes the names.
 const SCENES = [
+  // First in the grid, and the default scene for anyone with no saved
+  // preference. Added 2026-07-22 from the yoga re-shoot: a photoreal take
+  // on the modern-studio brief, alongside (not replacing) the original
+  // painterly Studio loop below.
+  { id: 'morning', label: 'Morning', src: 'assets/video/yoga-photoreal-breathing-v1.mp4', card: 'assets/img/card-morning.jpg' },
   { id: 'monk', label: 'Temple', src: 'assets/video/monk-temple-breathing-v1.mp4', card: 'assets/img/card-monk.jpg' },
   { id: 'yoga', label: 'Studio', src: 'assets/video/yoga-studio-breathing-v1.mp4', card: 'assets/img/card-yoga.jpg' },
   { id: 'elf', label: 'Forest', src: 'assets/video/elf-forest-breathing-v1.mp4', card: 'assets/img/card-elf.jpg' },
@@ -49,6 +54,11 @@ const GAGS = {
 // no entry here (yoga, hearth) simply never pop in — accepted gap for
 // now, may rerun those stills to give them variants later.
 const VARIANTS = {
+  // Same source still as the default, so the pop-in has no visible seam
+  // (frame 1 of the two takes differs by 0.49 of 255). The second take
+  // moves the face ~34% more than the default does — same reasoning as
+  // android below: the livelier take is the marker, not the resting state.
+  morning: ['assets/video/yoga-photoreal-breathing-v2.mp4'],
   monk: [
     'assets/video/monk-temple-breathing-v2.mp4',
     'assets/video/monk-temple-breathing-v3.mp4',
