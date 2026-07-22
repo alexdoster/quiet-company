@@ -880,7 +880,10 @@ const COUNTDOWN_NOTES = {
   never: "No clock at all. The closing chime tells you when you're done.",
 };
 
-let countdownMode = store.get('countdownMode', 'rest');
+// Defaults to 'always': a first-run screen with no clock on it reads as
+// missing functionality rather than as a deliberate setting. Hiding it is
+// opt-in, found once the user goes looking.
+let countdownMode = store.get('countdownMode', 'always');
 let intervalBellMs = store.get('intervalBellMinutes', 0) * 60000;
 let prepSeconds = store.get('prepSeconds', 0);
 
