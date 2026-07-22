@@ -5,7 +5,7 @@
 // Bump alongside CACHE in sw.js on every deploy — this is the only
 // user-visible confirmation that a phone has picked up the latest build
 // (shown small, bottom-right, home screen only).
-const APP_VERSION = 22;
+const APP_VERSION = 23;
 
 // Scene labels are provisional placeholders — Alex finalizes the names.
 const SCENES = [
@@ -987,6 +987,7 @@ $('#begin').addEventListener('click', () => {
 pauseBtn.addEventListener('click', togglePause);
 $('#end').addEventListener('click', endSession);
 $('#again').addEventListener('click', () => setUIState('browse'));
+$('#done').addEventListener('click', () => setUIState('home'));
 
 /* ---------- Wake lock ---------- */
 

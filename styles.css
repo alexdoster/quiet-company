@@ -265,7 +265,10 @@ body.at-home .scrim {
   visibility: hidden;
 }
 
-.state-browse .home-btn {
+/* Also on the complete screen: it's the one other state with no Back of
+   its own, and without this the only route home is via Sit again. */
+.state-browse .home-btn,
+.state-complete .home-btn {
   visibility: visible;
 }
 
@@ -673,6 +676,14 @@ body[data-countdown="never"] .countdown:not(.prep) {
 }
 
 /* ---------- Complete panel ---------- */
+
+.complete-actions {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+}
 
 .complete-msg {
   margin: 0 0 20px;
