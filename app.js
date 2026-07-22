@@ -5,7 +5,7 @@
 // Bump alongside CACHE in sw.js on every deploy — this is the only
 // user-visible confirmation that a phone has picked up the latest build
 // (shown small, bottom-right, home screen only).
-const APP_VERSION = 25;
+const APP_VERSION = 26;
 
 // Scene labels are provisional placeholders — Alex finalizes the names.
 const SCENES = [
@@ -51,6 +51,9 @@ const VARIANTS = {
     'assets/video/monk-temple-breathing-v3.mp4',
   ],
   elf: ['assets/video/elf-forest-breathing-v2.mp4'],
+  // v1 (the default) holds the mouth still; v2 has mouth movement, so it
+  // reads as a change when it pops in rather than as the resting state.
+  android: ['assets/video/android-room-breathing-v2.mp4'],
   photoreal: ['assets/video/photoreal-woman-breathing-v2.mp4'],
   rooftop: ['assets/video/rooftop-city-breathing-v2.mp4'],
 };
