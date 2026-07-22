@@ -5,7 +5,7 @@
 // Bump alongside CACHE in sw.js on every deploy — this is the only
 // user-visible confirmation that a phone has picked up the latest build
 // (shown small, bottom-right, home screen only).
-const APP_VERSION = 27;
+const APP_VERSION = 28;
 
 // Scene labels are provisional placeholders — Alex finalizes the names.
 const SCENES = [
@@ -46,14 +46,15 @@ const GAGS = {
 // its default loop, holds it ~2 breath cycles, then crossfades back to
 // the default. Doubles as a subtle "you've hit a minute" marker for
 // anyone tracking time; invisible to anyone dropped in deep. Scenes with
-// no entry here (yoga, hearth, leopard) simply never pop in — accepted
-// gap for now, may rerun those stills to give them variants later.
+// no entry here (yoga, hearth) simply never pop in — accepted gap for
+// now, may rerun those stills to give them variants later.
 const VARIANTS = {
   monk: [
     'assets/video/monk-temple-breathing-v2.mp4',
     'assets/video/monk-temple-breathing-v3.mp4',
   ],
   elf: ['assets/video/elf-forest-breathing-v2.mp4'],
+  leopard: ['assets/video/leopard-royalty-breathing-v2.mp4'],
   // v1 (the default) holds the mouth still; v2 has mouth movement, so it
   // reads as a change when it pops in rather than as the resting state.
   android: ['assets/video/android-room-breathing-v2.mp4'],
