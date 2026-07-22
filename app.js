@@ -5,7 +5,7 @@
 // Bump alongside CACHE in sw.js on every deploy — this is the only
 // user-visible confirmation that a phone has picked up the latest build
 // (shown small, bottom-right, home screen only).
-const APP_VERSION = 29;
+const APP_VERSION = 30;
 
 // Scene labels are provisional placeholders — Alex finalizes the names.
 const SCENES = [
@@ -13,7 +13,12 @@ const SCENES = [
   // preference. Added 2026-07-22 from the yoga re-shoot: a photoreal take
   // on the modern-studio brief, alongside (not replacing) the original
   // painterly Studio loop below.
-  { id: 'morning', label: 'Morning', src: 'assets/video/yoga-photoreal-breathing-v1.mp4', card: 'assets/img/card-morning.jpg' },
+  // 'center 85%' pulls the landscape crop off the top instead of splitting
+  // it: she sits low with ~24% of the frame as empty wall above her, so a
+  // centred crop cut the mat and knees while keeping dead space. 85% (not
+  // 'bottom') leaves a little headroom tolerance for viewports wider than a
+  // phone. Inert in portrait, where the crop goes sideways.
+  { id: 'morning', label: 'Morning', src: 'assets/video/yoga-photoreal-breathing-v1.mp4', card: 'assets/img/card-morning.jpg', objectPosition: 'center 85%' },
   { id: 'monk', label: 'Temple', src: 'assets/video/monk-temple-breathing-v1.mp4', card: 'assets/img/card-monk.jpg' },
   { id: 'yoga', label: 'Studio', src: 'assets/video/yoga-studio-breathing-v1.mp4', card: 'assets/img/card-yoga.jpg' },
   { id: 'elf', label: 'Forest', src: 'assets/video/elf-forest-breathing-v1.mp4', card: 'assets/img/card-elf.jpg' },
