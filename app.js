@@ -5,7 +5,7 @@
 // Bump alongside CACHE in sw.js on every deploy — this is the only
 // user-visible confirmation that a phone has picked up the latest build
 // (shown small, bottom-right, home screen only).
-const APP_VERSION = 21;
+const APP_VERSION = 22;
 
 // Scene labels are provisional placeholders — Alex finalizes the names.
 const SCENES = [
@@ -120,6 +120,13 @@ const CUSTOM_MAX = 120;
 const REST_DELAY = 4000; // ms of stillness before the UI fades during a session
 const SWIPE_MIN = 48; // px of horizontal travel that counts as a swipe
 
+// Interval bells ring on their own pitch, between the start chime's G4 and
+// the completion C5, so a marker never reads as the session ending.
+const BELL_FREQ = 440;
+// Don't ring an interval bell this close to completion — it would collide
+// with the end chime instead of marking anything.
+const BELL_END_GUARD_MS = 5000;
+
 /* ---------- Elements ---------- */
 
 const $ = (sel) => document.querySelector(sel);
@@ -143,10 +150,22 @@ const muteBtn = $('#mute');
 const gagBtn = $('#gag');
 const cardGridEl = $('#card-grid');
 const toHomeBtn = $('#to-home');
-const ambienceFieldEl = $('#ambience-field');
-const ambienceSelect = $('#ambience-select');
-const musicSelect = $('#music-select');
 const musicCreditEl = $('.music-credit');
+
+// Sound controls exist twice — inline on the setup screen and inside the
+// in-session sound sheet — so they're addressed as pairs and kept in sync
+// by renderSound() rather than duplicating any state.
+const ambienceFields = [$('#ambience-field'), $('#s-ambience-field')];
+const ambienceSelects = [$('#ambience-select'), $('#s-ambience-select')];
+const musicSelects = [$('#music-select'), $('#s-music-select')];
+
+const sheetBackdrop = $('#sheet-backdrop');
+const settingsSheet = $('#settings-sheet');
+const soundSheet = $('#sound-sheet');
+const countdownSelect = $('#countdown-select');
+const countdownNoteEl = $('#countdown-note');
+const bellsSelect = $('#bells-select');
+const prepSelect = $('#prep-select');
 
 /* ---------- Persistence ---------- */
 
@@ -451,7 +470,7 @@ window.addEventListener('pointerdown', (event) => {
   // The gag trigger deliberately doesn't wake the resting UI — the scene
   // should stay uncluttered while the interruption plays out.
   if (!event.target.closest('.gag-btn')) wake();
-  if (uiState === 'browse' && !event.target.closest('button')) {
+  if (uiState === 'browse' && !openSheet && !event.target.closest('button')) {
     swipeStart = { x: event.clientX, y: event.clientY };
   }
 });
@@ -476,42 +495,88 @@ window.addEventListener('keydown', (event) => {
 $('#nav-prev').addEventListener('click', () => changeScene(-1));
 $('#nav-next').addEventListener('click', () => changeScene(1));
 
-/* ---------- Timer ---------- */
+/* ---------- Timer ----------
+   Two session shapes share one object: a fixed session counts endAt
+   down, an open-ended one counts up from startAt with no end at all.
+   elapsedMs is derived either way, so minute markers and interval bells
+   read from a single source rather than each deriving their own. Both
+   shapes are timestamp-based, so backgrounding or locking the phone
+   can't drift them. An optional settle window (Settings) runs on its own
+   countdown first, before either shape starts. */
 
 const timer = {
-  durationMs: 0,
+  durationMs: 0, // 0 for an open-ended session
   remainingMs: 0,
-  endAt: 0,
+  elapsedMs: 0,
+  endAt: 0, // fixed sessions
+  startAt: 0, // open-ended sessions; shifted forward on resume
+  openEnded: false,
+  prepEndAt: 0, // settle window in progress; 0 once the session proper runs
 };
+let prepRemainingMs = 0; // held across a pause taken during the settle window
 
-// Timestamp-based so the countdown stays honest if the tab is
-// backgrounded or the phone locks mid-session.
 setInterval(() => {
   if (uiState !== 'running') return;
-  timer.remainingMs = Math.max(0, timer.endAt - Date.now());
+
+  // Settle window: nothing of the session has started yet — no chime, no
+  // ambience, no markers — the scene is just there to sit down in front of.
+  if (timer.prepEndAt) {
+    const left = timer.prepEndAt - Date.now();
+    if (left > 0) {
+      renderPrep(left);
+      return;
+    }
+    beginTimedPortion();
+    return;
+  }
+
+  if (timer.openEnded) {
+    timer.elapsedMs = Date.now() - timer.startAt;
+  } else {
+    timer.remainingMs = Math.max(0, timer.endAt - Date.now());
+    timer.elapsedMs = timer.durationMs - timer.remainingMs;
+  }
   renderCountdown();
-  if (timer.remainingMs <= 0) {
+  if (!timer.openEnded && timer.remainingMs <= 0) {
     completeSession();
     return;
   }
   maybeFireMinuteMarker();
+  maybeFireIntervalBell();
 }, 250);
 
 // Fire a variant pop-in each time session-elapsed time crosses a minute
-// boundary. Driven off elapsed = duration - remaining (not a free-running
-// interval) so it stays aligned to real meditation minutes and naturally
-// freezes while paused. Skipped too close to the end, where the hold
-// would be cut off by session completion.
+// boundary. Driven off elapsed time (not a free-running interval) so it
+// stays aligned to real meditation minutes and naturally freezes while
+// paused. Skipped too close to the end of a fixed session, where the hold
+// would be cut off by completion; an open session has no such edge.
 let lastMarkerMinute = 0;
 function maybeFireMinuteMarker() {
-  const minute = Math.floor((timer.durationMs - timer.remainingMs) / MARKER_INTERVAL_MS);
+  const minute = Math.floor(timer.elapsedMs / MARKER_INTERVAL_MS);
   if (minute <= lastMarkerMinute) return;
   lastMarkerMinute = minute;
-  if (timer.remainingMs > VARIANT_HOLD_MS + VARIANT_FADE_MS * 2) fireVariant();
+  const roomToFinish =
+    timer.openEnded ||
+    timer.remainingMs > VARIANT_HOLD_MS + VARIANT_FADE_MS * 2;
+  if (roomToFinish) fireVariant();
 }
 
-function formatTime(ms) {
-  const totalSeconds = Math.ceil(ms / 1000);
+// Same elapsed-driven boundary logic as the marker above, on its own
+// user-set interval: a struck bell to mark passing time without opening
+// your eyes for the clock.
+let lastBellInterval = 0;
+function maybeFireIntervalBell() {
+  if (!intervalBellMs) return;
+  const n = Math.floor(timer.elapsedMs / intervalBellMs);
+  if (n <= lastBellInterval) return;
+  lastBellInterval = n;
+  if (!timer.openEnded && timer.remainingMs <= BELL_END_GUARD_MS) return;
+  ensureAudio();
+  bell(0, BELL_FREQ, 0.09, 3.5);
+}
+
+function formatTime(ms, round = Math.ceil) {
+  const totalSeconds = round(ms / 1000);
   const h = Math.floor(totalSeconds / 3600);
   const m = Math.floor((totalSeconds % 3600) / 60);
   const s = totalSeconds % 60;
@@ -521,19 +586,55 @@ function formatTime(ms) {
 }
 
 function renderCountdown() {
-  countdownEl.textContent = formatTime(timer.remainingMs);
+  // Counting up rounds down, so an open session opens on 0:00 rather than
+  // flicking to 0:01 in its first millisecond.
+  countdownEl.textContent = timer.openEnded
+    ? formatTime(timer.elapsedMs, Math.floor)
+    : formatTime(timer.remainingMs);
 }
 
-function startSession(minutes) {
-  timer.durationMs = minutes * 60000;
+function renderPrep(ms) {
+  countdownEl.textContent = String(Math.ceil(ms / 1000));
+}
+
+// `choice` is a number of minutes or the string 'open'.
+function startSession(choice) {
+  timer.openEnded = choice === 'open';
+  timer.durationMs = timer.openEnded ? 0 : choice * 60000;
   timer.remainingMs = timer.durationMs;
-  timer.endAt = Date.now() + timer.durationMs;
+  timer.elapsedMs = 0;
+  timer.endAt = 0;
+  timer.startAt = 0;
   lastMarkerMinute = 0;
-  renderCountdown();
+  lastBellInterval = 0;
   pauseBtn.textContent = 'Pause';
   setUIState('running');
   playActiveVideo();
   acquireWakeLock();
+
+  if (prepSeconds > 0) {
+    timer.prepEndAt = Date.now() + prepSeconds * 1000;
+    countdownEl.classList.add('prep');
+    renderPrep(prepSeconds * 1000);
+  } else {
+    timer.prepEndAt = 0;
+    beginTimedPortion();
+  }
+}
+
+// The real start: everything the settle window deliberately held back.
+function beginTimedPortion() {
+  timer.prepEndAt = 0;
+  countdownEl.classList.remove('prep');
+  const now = Date.now();
+  if (timer.openEnded) {
+    timer.startAt = now;
+    timer.elapsedMs = 0;
+  } else {
+    timer.endAt = now + timer.durationMs;
+    timer.remainingMs = timer.durationMs;
+  }
+  renderCountdown();
   chimeStart();
   if (ambienceOn) Ambience.start(SCENES[sceneIndex].id);
   const track = currentMusicTrack();
@@ -541,14 +642,27 @@ function startSession(minutes) {
 }
 
 function togglePause() {
+  const now = Date.now();
   if (uiState === 'running') {
-    timer.remainingMs = Math.max(0, timer.endAt - Date.now());
+    if (timer.prepEndAt) {
+      prepRemainingMs = Math.max(0, timer.prepEndAt - now);
+    } else if (timer.openEnded) {
+      timer.elapsedMs = now - timer.startAt;
+    } else {
+      timer.remainingMs = Math.max(0, timer.endAt - now);
+    }
     pauseBtn.textContent = 'Resume';
     setUIState('paused');
     Ambience.duck();
     musicAudio?.pause();
   } else if (uiState === 'paused') {
-    timer.endAt = Date.now() + timer.remainingMs;
+    if (timer.prepEndAt) {
+      timer.prepEndAt = now + prepRemainingMs;
+    } else if (timer.openEnded) {
+      timer.startAt = now - timer.elapsedMs;
+    } else {
+      timer.endAt = now + timer.remainingMs;
+    }
     pauseBtn.textContent = 'Pause';
     setUIState('running');
     acquireWakeLock();
@@ -558,7 +672,16 @@ function togglePause() {
 }
 
 function endSession() {
+  // An open session has no other way to finish, so ending one IS
+  // completing it — end chime and all. Ending a fixed session early is
+  // abandoning it, which stays silent, as does bailing out mid-settle.
+  if (timer.openEnded && !timer.prepEndAt) {
+    completeSession();
+    return;
+  }
   releaseWakeLock();
+  timer.prepEndAt = 0;
+  countdownEl.classList.remove('prep');
   setUIState('browse');
   Ambience.stop();
   stopMusic();
@@ -566,6 +689,8 @@ function endSession() {
 
 function completeSession() {
   releaseWakeLock();
+  timer.prepEndAt = 0;
+  countdownEl.classList.remove('prep');
   setUIState('complete');
   chimeEnd();
   Ambience.stop();
@@ -584,7 +709,9 @@ function wake() {
 
 function scheduleRest() {
   clearTimeout(restTimer);
-  if (uiState === 'running') {
+  // An open sheet holds the UI awake — the controls underneath must not
+  // fade out from under a dropdown the user is still reading.
+  if (uiState === 'running' && !openSheet) {
     restTimer = setTimeout(() => ui.classList.add('resting'), REST_DELAY);
   } else {
     ui.classList.remove('resting');
@@ -593,14 +720,18 @@ function scheduleRest() {
 
 /* ---------- Duration picker ---------- */
 
-let selectedChoice = store.get('duration', 10); // minutes, or 'custom'
+let selectedChoice = store.get('duration', 10); // minutes, 'custom', or 'open'
 let customMinutes = store.get('customMinutes', CUSTOM_DEFAULT);
+
+// 'open' and 'custom' stay strings; everything else is a minute count.
+function durationValue(btn) {
+  const raw = btn.dataset.minutes;
+  return raw === 'custom' || raw === 'open' ? raw : Number(raw);
+}
 
 function renderDurations() {
   for (const btn of durationGroup.children) {
-    const value =
-      btn.dataset.minutes === 'custom' ? 'custom' : Number(btn.dataset.minutes);
-    btn.classList.toggle('selected', value === selectedChoice);
+    btn.classList.toggle('selected', durationValue(btn) === selectedChoice);
   }
   customRow.classList.toggle('collapsed', selectedChoice !== 'custom');
   customValue.textContent = `${customMinutes} min`;
@@ -609,8 +740,7 @@ function renderDurations() {
 durationGroup.addEventListener('click', (event) => {
   const btn = event.target.closest('.duration');
   if (!btn) return;
-  selectedChoice =
-    btn.dataset.minutes === 'custom' ? 'custom' : Number(btn.dataset.minutes);
+  selectedChoice = durationValue(btn);
   store.set('duration', selectedChoice);
   renderDurations();
 });
@@ -640,13 +770,14 @@ let ambienceOn = store.get('ambienceOn', false);
 let musicCategory = store.get('musicCategory', 'none');
 let musicTrackIndex = store.get('musicTrackIndex', 0);
 
-// Music options are built once from MUSIC; option values are
-// "category:trackIndex" so one select carries both stored keys.
-{
+// Music options are built from MUSIC into both copies of the control;
+// option values are "category:trackIndex" so one select carries both
+// stored keys.
+for (const select of musicSelects) {
   const none = document.createElement('option');
   none.value = 'none';
   none.textContent = 'None';
-  musicSelect.appendChild(none);
+  select.appendChild(none);
   for (const group of MUSIC) {
     const optgroup = document.createElement('optgroup');
     optgroup.label = group.label;
@@ -656,7 +787,7 @@ let musicTrackIndex = store.get('musicTrackIndex', 0);
       option.textContent = track.label;
       optgroup.appendChild(option);
     });
-    musicSelect.appendChild(optgroup);
+    select.appendChild(optgroup);
   }
 }
 
@@ -667,31 +798,171 @@ function currentMusicTrack() {
 
 function renderSound() {
   const bed = AMBIENCE[SCENES[sceneIndex].id];
-  ambienceFieldEl.classList.toggle('hidden', !bed);
+  for (const field of ambienceFields) field.classList.toggle('hidden', !bed);
   if (bed) {
-    ambienceSelect.options[1].textContent = bed.label;
-    ambienceSelect.value = ambienceOn ? 'on' : 'off';
+    for (const select of ambienceSelects) {
+      select.options[1].textContent = bed.label;
+      select.value = ambienceOn ? 'on' : 'off';
+    }
   }
 
   const group = MUSIC.find((c) => c.id === musicCategory);
-  musicSelect.value = group
+  const value = group
     ? `${musicCategory}:${musicTrackIndex % group.tracks.length}`
     : 'none';
+  for (const select of musicSelects) select.value = value;
   musicCreditEl.classList.toggle('visible', !!group);
 }
 
-ambienceSelect.addEventListener('change', () => {
-  ambienceOn = ambienceSelect.value === 'on';
-  store.set('ambienceOn', ambienceOn);
+/* Mid-session changes. Setup-screen changes land before anything is
+   playing and need no live handling; sheet changes during a session do.
+   Ambience.start()/startMusic() both tear down what's playing first, so
+   these just re-run the same calls startSession() makes. */
+
+function sessionAudioLive() {
+  return (
+    (uiState === 'running' || uiState === 'paused') && !timer.prepEndAt
+  );
+}
+
+function applyAmbienceLive() {
+  if (!sessionAudioLive()) return;
+  if (!ambienceOn) {
+    Ambience.stop();
+    return;
+  }
+  Ambience.start(SCENES[sceneIndex].id);
+  if (uiState === 'paused') Ambience.duck();
+}
+
+function applyMusicLive() {
+  if (!sessionAudioLive()) return;
+  const track = currentMusicTrack();
+  if (!track) {
+    stopMusic();
+    return;
+  }
+  startMusic(track.src);
+  // Starting a track while paused would play over a stopped session.
+  if (uiState === 'paused') musicAudio?.pause();
+}
+
+for (const select of ambienceSelects) {
+  select.addEventListener('change', () => {
+    ambienceOn = select.value === 'on';
+    store.set('ambienceOn', ambienceOn);
+    renderSound();
+    applyAmbienceLive();
+  });
+}
+
+for (const select of musicSelects) {
+  select.addEventListener('change', () => {
+    const [cat, index] = select.value.split(':');
+    musicCategory = cat;
+    musicTrackIndex = Number(index) || 0;
+    store.set('musicCategory', musicCategory);
+    store.set('musicTrackIndex', musicTrackIndex);
+    renderSound();
+    applyMusicLive();
+  });
+}
+
+/* ---------- Settings (app-wide, set once) ----------
+   Deliberately separate from the setup screen's sound controls, split by
+   lifetime: setup holds what you pick for THIS session (scene, length,
+   ambience, track), Settings holds preferences you set once and forget.
+   Keeping sound out of here avoids two places that both claim to own it. */
+
+const COUNTDOWN_NOTES = {
+  always: 'The clock stays on screen for the whole session.',
+  rest: 'The clock fades with the controls and returns on a tap.',
+  never: "No clock at all. The closing chime tells you when you're done.",
+};
+
+let countdownMode = store.get('countdownMode', 'rest');
+let intervalBellMs = store.get('intervalBellMinutes', 0) * 60000;
+let prepSeconds = store.get('prepSeconds', 0);
+
+function applySettings() {
+  // Drives the countdown's visibility rules in CSS. On body rather than
+  // #ui because setUIState() rewrites #ui's className wholesale.
+  document.body.dataset.countdown = countdownMode;
+  countdownNoteEl.textContent = COUNTDOWN_NOTES[countdownMode];
+  countdownSelect.value = countdownMode;
+  bellsSelect.value = String(intervalBellMs / 60000);
+  prepSelect.value = String(prepSeconds);
+}
+
+countdownSelect.addEventListener('change', () => {
+  countdownMode = countdownSelect.value;
+  store.set('countdownMode', countdownMode);
+  applySettings();
 });
 
-musicSelect.addEventListener('change', () => {
-  const [cat, index] = musicSelect.value.split(':');
-  musicCategory = cat;
-  musicTrackIndex = Number(index) || 0;
-  store.set('musicCategory', musicCategory);
-  store.set('musicTrackIndex', musicTrackIndex);
+bellsSelect.addEventListener('change', () => {
+  const minutes = Number(bellsSelect.value) || 0;
+  intervalBellMs = minutes * 60000;
+  store.set('intervalBellMinutes', minutes);
+  // Re-baseline against elapsed time so switching mid-session doesn't
+  // immediately fire for every interval already behind us.
+  lastBellInterval = intervalBellMs
+    ? Math.floor(timer.elapsedMs / intervalBellMs)
+    : 0;
+});
+
+prepSelect.addEventListener('change', () => {
+  prepSeconds = Number(prepSelect.value) || 0;
+  store.set('prepSeconds', prepSeconds);
+});
+
+/* ---------- Sheets ----------
+   Overlay rather than another panel state: these open over whatever is
+   showing, so the scene never leaves the screen to change a setting. */
+
+let openSheet = null;
+
+function showSheet(sheet) {
+  openSheet = sheet;
+  sheetBackdrop.hidden = false;
+  sheet.hidden = false;
+  // Next frame, so the fade runs from the hidden state rather than
+  // starting already-open.
+  requestAnimationFrame(() => {
+    sheetBackdrop.classList.add('open');
+    sheet.classList.add('open');
+  });
+  scheduleRest(); // holds the session UI awake while a sheet is up
+}
+
+function hideSheet() {
+  const sheet = openSheet;
+  if (!sheet) return;
+  openSheet = null;
+  sheet.classList.remove('open');
+  sheetBackdrop.classList.remove('open');
+  setTimeout(() => {
+    // Guard against a sheet reopened during the fade-out.
+    if (openSheet !== sheet) sheet.hidden = true;
+    if (!openSheet) sheetBackdrop.hidden = true;
+  }, 300);
+  scheduleRest();
+}
+
+$('#settings-open').addEventListener('click', () => showSheet(settingsSheet));
+
+$('#sound-open').addEventListener('click', () => {
+  ensureAudio();
   renderSound();
+  showSheet(soundSheet);
+});
+
+for (const btn of document.querySelectorAll('.sheet-done')) {
+  btn.addEventListener('click', hideSheet);
+}
+sheetBackdrop.addEventListener('click', hideSheet);
+window.addEventListener('keydown', (event) => {
+  if (event.key === 'Escape') hideSheet();
 });
 
 /* ---------- Flow buttons ---------- */
@@ -741,9 +1012,15 @@ document.addEventListener('visibilitychange', () => {
   if (audioCtx?.state === 'suspended') audioCtx.resume();
   if (uiState === 'running') {
     acquireWakeLock();
-    timer.remainingMs = Math.max(0, timer.endAt - Date.now());
+    if (timer.prepEndAt) return; // the tick owns the settle window
+    if (timer.openEnded) {
+      timer.elapsedMs = Date.now() - timer.startAt;
+    } else {
+      timer.remainingMs = Math.max(0, timer.endAt - Date.now());
+      timer.elapsedMs = timer.durationMs - timer.remainingMs;
+    }
     renderCountdown();
-    if (timer.remainingMs <= 0) completeSession();
+    if (!timer.openEnded && timer.remainingMs <= 0) completeSession();
   }
 });
 
@@ -989,6 +1266,7 @@ const Ambience = {
 /* ---------- Boot ---------- */
 
 renderDurations();
+applySettings();
 // Land on the home grid without touching any video — setScene (and the
 // lazy video loading it triggers) waits for the first card tap.
 setUIState('home');

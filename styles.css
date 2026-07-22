@@ -224,6 +224,18 @@ body.at-home .scrim {
   margin: 18px auto 0;
 }
 
+/* Fixed rather than absolute so it stays put while the grid scrolls.
+   Inherits the home screen's own fade in/out, being a child of it. */
+.home-settings {
+  position: fixed;
+  z-index: 2;
+  top: calc(env(safe-area-inset-top) + 20px);
+  right: calc(env(safe-area-inset-right) + 20px);
+  padding: 8px 16px;
+  font-size: 12px;
+  letter-spacing: 0.06em;
+}
+
 /* ---------- Layout ---------- */
 
 #ui {
@@ -510,6 +522,14 @@ body.at-home .scrim {
   font-variant-numeric: tabular-nums;
 }
 
+/* Wider than the other panels' 420px so the five duration pills hold one
+   row — wrapping "Open" onto its own line costs ~44px of height, which a
+   390px-tall landscape phone can't spare. No effect in portrait, where
+   the viewport is narrower than either figure. */
+#setup {
+  max-width: 470px;
+}
+
 .setup-actions {
   display: flex;
   justify-content: center;
@@ -613,8 +633,17 @@ body.at-home .scrim {
 .session-controls {
   display: flex;
   justify-content: center;
+  flex-wrap: wrap;
   gap: 12px;
   transition: opacity 0.9s var(--ease);
+}
+
+/* Settle time: the pre-session count-in reads as a small dim number, so
+   it's visibly not the session clock starting early. */
+.countdown.prep {
+  font-size: clamp(28px, 6vw, 40px);
+  font-weight: 300;
+  color: var(--ink-dim);
 }
 
 /* Resting state: controls fade away so the scene holds the screen.
@@ -622,6 +651,19 @@ body.at-home .scrim {
 
 .resting .countdown {
   opacity: 0.28;
+}
+
+/* Countdown visibility (Settings). "rest" keeps the clock available on a
+   tap but takes it off the resting screen entirely; "never" removes it
+   from every state, leaving the end chime as the only signal. The settle
+   count-in always shows — it's a start cue, not the session clock. */
+
+body[data-countdown="rest"] .resting .countdown:not(.prep) {
+  opacity: 0;
+}
+
+body[data-countdown="never"] .countdown:not(.prep) {
+  opacity: 0;
 }
 
 .resting .session-controls,
@@ -638,6 +680,134 @@ body.at-home .scrim {
   font-size: 26px;
   font-weight: 400;
   color: var(--ink);
+}
+
+/* ---------- Sheets (Settings, in-session Sound) ----------
+   One shared component above every screen. Kept out of the #ui panel
+   grid on purpose: these open over whatever's showing rather than
+   replacing it, so the scene never leaves the screen. */
+
+.sheet-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  background: rgba(6, 9, 13, 0.55);
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
+  opacity: 0;
+  transition: opacity 0.3s var(--ease);
+}
+
+.sheet {
+  position: fixed;
+  z-index: 21;
+  left: 50%;
+  top: 50%;
+  width: min(calc(100vw - 40px), 380px);
+  max-height: min(calc(100vh - 40px), 560px);
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 24px 22px calc(20px + env(safe-area-inset-bottom));
+  border: 1px solid var(--glass-border);
+  border-radius: 22px;
+  background: rgba(16, 21, 28, 0.86);
+  -webkit-backdrop-filter: blur(28px) saturate(140%);
+  backdrop-filter: blur(28px) saturate(140%);
+  text-align: center;
+  opacity: 0;
+  transform: translate(-50%, -46%);
+  transition: opacity 0.3s var(--ease), transform 0.3s var(--ease);
+}
+
+.sheet-backdrop.open,
+.sheet.open {
+  opacity: 1;
+}
+
+.sheet.open {
+  transform: translate(-50%, -50%);
+}
+
+.sheet-title {
+  margin: 0 0 20px;
+  font-family: var(--serif);
+  font-size: 22px;
+  font-weight: 500;
+}
+
+.sheet-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  margin-bottom: 14px;
+  text-align: left;
+}
+
+.sheet-row.hidden {
+  display: none;
+}
+
+.sheet-label {
+  font-size: 15px;
+  font-weight: 300;
+  color: var(--ink-dim);
+  white-space: nowrap;
+}
+
+/* Same treatment as the setup screen's .select-field, minus the inline
+   label — the row already carries one. */
+.select-shell {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  padding: 9px 32px 9px 16px;
+  border: 1px solid var(--glass-border);
+  border-radius: 999px;
+  background: var(--glass);
+}
+
+.select-shell::after {
+  content: "\25BE";
+  position: absolute;
+  right: 13px;
+  color: var(--ink-faint);
+  pointer-events: none;
+}
+
+.select-shell select {
+  appearance: none;
+  -webkit-appearance: none;
+  border: none;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  font-size: 14px;
+  padding: 0;
+  cursor: pointer;
+  max-width: 44vw;
+}
+
+.select-shell select:focus {
+  outline: none;
+}
+
+.sheet-note {
+  margin: -6px 0 18px;
+  font-size: 12px;
+  line-height: 1.45;
+  text-align: left;
+  color: var(--ink-faint);
+}
+
+.sheet-note:empty {
+  display: none;
+}
+
+.sheet-done {
+  margin-top: 6px;
+  min-width: 0;
+  width: 100%;
 }
 
 /* Short viewports (landscape phones): tighten vertical rhythm so the
@@ -689,6 +859,23 @@ body.at-home .scrim {
     font-size: clamp(44px, 10vh, 64px);
     margin-bottom: 14px;
   }
+
+  .sheet {
+    padding: 16px 18px calc(14px + env(safe-area-inset-bottom));
+  }
+
+  .sheet-title {
+    margin-bottom: 12px;
+    font-size: 19px;
+  }
+
+  .sheet-row {
+    margin-bottom: 10px;
+  }
+
+  .sheet-note {
+    margin-bottom: 12px;
+  }
 }
 
 /* Landscape phones: the centered countdown stack lands on the
@@ -728,7 +915,13 @@ body.at-home .scrim {
   .scene-name,
   .custom-row,
   .home,
-  .card {
+  .card,
+  .sheet,
+  .sheet-backdrop {
     transition: none;
+  }
+
+  .sheet {
+    transform: translate(-50%, -50%);
   }
 }

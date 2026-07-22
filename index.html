@@ -22,6 +22,9 @@
   <div class="scrim scrim-bottom" aria-hidden="true"></div>
 
   <section id="home" class="home" aria-label="Choose a scene">
+    <!-- Text label, not a gear icon: SVG icons failed to render on this
+         app twice in a row (v9/v10) for reasons never pinned down. -->
+    <button id="settings-open" class="pill subtle home-settings">Settings</button>
     <header class="home-header">
       <p class="home-eyebrow">A Meditation Timer</p>
       <h1 class="home-brand">Quiet Company</h1>
@@ -57,6 +60,7 @@
           <button class="pill duration" data-minutes="10">10 min</button>
           <button class="pill duration" data-minutes="15">15 min</button>
           <button class="pill duration" data-minutes="custom">Custom</button>
+          <button class="pill duration" data-minutes="open">Open</button>
         </div>
         <div id="custom-row" class="custom-row">
           <button id="custom-minus" class="step" aria-label="One minute less">&minus;</button>
@@ -91,6 +95,7 @@
         <div class="session-controls">
           <button id="pause" class="pill">Pause</button>
           <button id="end" class="pill subtle">End</button>
+          <button id="sound-open" class="pill subtle">Sound</button>
         </div>
         <button id="gag" class="pill subtle gag-btn hidden">Gag</button>
       </section>
@@ -102,6 +107,83 @@
 
     </div>
   </main>
+
+  <!-- Sheets sit above every screen. Settings holds app-wide preferences
+       set once; the sound sheet holds this session's audio, mirroring the
+       setup screen's controls so a track can change mid-session. -->
+  <div id="sheet-backdrop" class="sheet-backdrop" hidden></div>
+
+  <section id="settings-sheet" class="sheet" role="dialog" aria-modal="true"
+           aria-label="Settings" hidden>
+    <h2 class="sheet-title">Settings</h2>
+
+    <label class="sheet-row">
+      <span class="sheet-label">Countdown</span>
+      <span class="select-shell">
+        <select id="countdown-select">
+          <option value="always">Always shown</option>
+          <option value="rest">Tap to check</option>
+          <option value="never">Never</option>
+        </select>
+      </span>
+    </label>
+    <p class="sheet-note" id="countdown-note"></p>
+
+    <label class="sheet-row">
+      <span class="sheet-label">Interval bells</span>
+      <span class="select-shell">
+        <select id="bells-select">
+          <option value="0">Off</option>
+          <option value="1">Every minute</option>
+          <option value="2">Every 2 minutes</option>
+          <option value="3">Every 3 minutes</option>
+          <option value="5">Every 5 minutes</option>
+          <option value="10">Every 10 minutes</option>
+          <option value="15">Every 15 minutes</option>
+        </select>
+      </span>
+    </label>
+
+    <label class="sheet-row">
+      <span class="sheet-label">Settle time</span>
+      <span class="select-shell">
+        <select id="prep-select">
+          <option value="0">None</option>
+          <option value="10">10 seconds</option>
+          <option value="20">20 seconds</option>
+          <option value="30">30 seconds</option>
+          <option value="60">1 minute</option>
+        </select>
+      </span>
+    </label>
+    <p class="sheet-note">A pause before the clock starts, to get seated.</p>
+
+    <button class="pill cta sheet-done">Done</button>
+  </section>
+
+  <section id="sound-sheet" class="sheet" role="dialog" aria-modal="true"
+           aria-label="Sound" hidden>
+    <h2 class="sheet-title">Sound</h2>
+
+    <label class="sheet-row hidden" id="s-ambience-field">
+      <span class="sheet-label">Ambience</span>
+      <span class="select-shell">
+        <select id="s-ambience-select">
+          <option value="off">Off</option>
+          <option value="on">On</option>
+        </select>
+      </span>
+    </label>
+
+    <label class="sheet-row">
+      <span class="sheet-label">Music</span>
+      <span class="select-shell">
+        <select id="s-music-select"></select>
+      </span>
+    </label>
+
+    <button class="pill cta sheet-done">Done</button>
+  </section>
 
   <script src="app.js"></script>
 </body>
