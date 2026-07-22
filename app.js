@@ -5,7 +5,7 @@
 // Bump alongside CACHE in sw.js on every deploy — this is the only
 // user-visible confirmation that a phone has picked up the latest build
 // (shown small, bottom-right, home screen only).
-const APP_VERSION = 26;
+const APP_VERSION = 27;
 
 // Scene labels are provisional placeholders — Alex finalizes the names.
 const SCENES = [
@@ -20,11 +20,14 @@ const SCENES = [
   { id: 'leopard', label: 'Leopard', src: 'assets/video/leopard-royalty-breathing-v1.mp4', card: 'assets/img/card-leopard.jpg', objectPosition: 'center top' },
   { id: 'photoreal', label: 'Sunlight', src: 'assets/video/photoreal-woman-breathing-v1.mp4', card: 'assets/img/card-photoreal.jpg', objectPosition: 'center top' },
   { id: 'rooftop', label: 'Rooftop', src: 'assets/video/rooftop-city-breathing-v1.mp4', card: 'assets/img/card-rooftop.jpg' },
-  // Sits left of centre rather than centred, and its head is very high in
-  // frame (~4% down), so it needs the same 'center top' crop as Leopard
-  // and Sunlight. Note the off-centre framing also breaks the assumption
-  // behind the v17 landscape corner clock (see CLAUDE.md).
-  { id: 'android', label: 'Android', src: 'assets/video/android-room-breathing-v1.mp4', card: 'assets/img/card-android.jpg', objectPosition: 'center top' },
+  // The only scene whose subject isn't centre-framed: it sits left of
+  // centre with its head high in frame, so BOTH axes need anchoring.
+  // '21%' handles portrait, where cover crops the sides — the head spans
+  // source x 257-474 of 1280, so a centred crop cuts it off entirely;
+  // 21% centres the visible window on the head instead. 'top' handles
+  // landscape, where cover crops top and bottom. Each value is inert on
+  // the axis the other one fixes, so one pair covers both orientations.
+  { id: 'android', label: 'Android', src: 'assets/video/android-room-breathing-v1.mp4', card: 'assets/img/card-android.jpg', objectPosition: '21% top' },
   // On loan from Portals-App for desk-companion testing + live Portals demo — pinned to bottom
   { id: 'hammock', label: 'Hammock', src: 'assets/video/hammock-sleep-v1.mp4', card: 'assets/img/card-hammock.jpg' },
   { id: 'horizon', label: 'Horizon', src: 'assets/video/horizon-gaze-v1.mp4', card: 'assets/img/card-horizon.jpg' },
