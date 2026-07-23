@@ -5,7 +5,7 @@
 // Bump alongside CACHE in sw.js on every deploy — this is the only
 // user-visible confirmation that a phone has picked up the latest build
 // (shown small, bottom-right, home screen only).
-const APP_VERSION = 45;
+const APP_VERSION = 46;
 
 // Scene labels are provisional placeholders — Alex finalizes the names.
 const SCENES = [
@@ -19,6 +19,15 @@ const SCENES = [
   // 'bottom') leaves a little headroom tolerance for viewports wider than a
   // phone. Inert in portrait, where the crop goes sideways.
   { id: 'morning', label: 'Morning', src: 'assets/video/yoga-photoreal-breathing-v1.mp4', card: 'assets/img/card-morning.jpg', objectPosition: 'center 85%' },
+  // Added 2026-07-23. Tightest framing on the roster, so it needs both axes:
+  // her hair tops out at source y=59 (8.2% headroom), so a landscape phone's
+  // centred vertical crop takes 62px off the top and cuts into it — hence
+  // 'top'. She also sits right of centre (head centres at x=798 against a
+  // frame centre of 640), and portrait shows only 330 of 1280 source px while
+  // her body spans 420 — so portrait CANNOT hold all of her at any value.
+  // '57%' is the compromise that keeps the face safe and gives up the outer
+  // hair wisps and part of the left hand, rather than losing the face.
+  { id: 'river', label: 'Current', src: 'assets/video/river-rock-breathing-v1.mp4', card: 'assets/img/card-river.jpg', objectPosition: '57% top' },
   { id: 'monk', label: 'Temple', src: 'assets/video/monk-temple-breathing-v1.mp4', card: 'assets/img/card-monk.jpg' },
   { id: 'yoga', label: 'Studio', src: 'assets/video/yoga-studio-breathing-v1.mp4', card: 'assets/img/card-yoga.jpg' },
   { id: 'elf', label: 'Forest', src: 'assets/video/elf-forest-breathing-v1.mp4', card: 'assets/img/card-elf.jpg' },
@@ -69,6 +78,17 @@ const VARIANTS = {
   // moves the face ~34% more than the default does — same reasoning as
   // android below: the livelier take is the marker, not the resting state.
   morning: ['assets/video/yoga-photoreal-breathing-v2.mp4'],
+  // Deliberately the reverse of the android/morning rule below. There the
+  // quieter take is the default because the livelier one's extra motion was
+  // *mouth* movement on a photoreal face. Here the extra motion is breath —
+  // v1 moves ~2x v2 in every region (head 2.3x, shoulders 1.9x, chest 1.5x,
+  // against a 0.018 static control) and its chest curve is a complete cycle
+  // where v2's only rises and plateaus. Under-amplitude is this project's
+  // repeat failure, so the livelier take is the resting state and the quieter
+  // one is the marker. Both re-encoded independently, so their frame 1s sit
+  // 1.94 of 255 apart — compression noise, and the pop-in crossfades over 2s
+  // anyway, so it never resolves as a seam.
+  river: ['assets/video/river-rock-breathing-v2.mp4'],
   monk: [
     'assets/video/monk-temple-breathing-v2.mp4',
     'assets/video/monk-temple-breathing-v3.mp4',
