@@ -5,7 +5,7 @@
 // Bump alongside CACHE in sw.js on every deploy — this is the only
 // user-visible confirmation that a phone has picked up the latest build
 // (shown small, bottom-right, home screen only).
-const APP_VERSION = 37;
+const APP_VERSION = 38;
 
 // Scene labels are provisional placeholders — Alex finalizes the names.
 const SCENES = [
@@ -1419,12 +1419,18 @@ function ensureAudio() {
   }
 }
 
+// The glyph itself never changes — the muted state is the CSS slash plus a
+// dimmer colour, so there's no second character to depend on.
+function renderMute() {
+  muteBtn.classList.toggle('muted', muted);
+  muteBtn.setAttribute('aria-pressed', String(muted));
+  muteBtn.setAttribute('aria-label', muted ? 'Unmute' : 'Mute');
+}
+
 function setMuted(next) {
   muted = next;
   store.set('muted', muted);
-  muteBtn.classList.toggle('muted', muted);
-  muteBtn.textContent = muted ? 'Muted' : 'Sound';
-  muteBtn.setAttribute('aria-pressed', String(muted));
+  renderMute();
   if (masterGain) {
     masterGain.gain.setTargetAtTime(muted ? 0 : 1, audioCtx.currentTime, 0.15);
   }
@@ -1765,9 +1771,7 @@ applySettings();
 // Land on the home grid without touching any video — setScene (and the
 // lazy video loading it triggers) waits for the first card tap.
 setUIState('home');
-muteBtn.classList.toggle('muted', muted);
-muteBtn.textContent = muted ? 'Muted' : 'Sound';
-muteBtn.setAttribute('aria-pressed', String(muted));
+renderMute();
 $('#version').textContent = 'v' + APP_VERSION;
 
 if ('serviceWorker' in navigator && location.protocol !== 'file:') {

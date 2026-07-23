@@ -46,7 +46,13 @@
   <main id="ui" class="state-browse">
     <header class="top">
       <button id="to-home" class="pill subtle home-btn">&#8249; Scenes</button>
-      <button id="mute" class="pill mute-toggle" aria-pressed="false">Sound</button>
+      <!-- A text glyph, not an SVG. SVG icons failed to render on this app
+           twice (v9/v10) for reasons never pinned down; ∞ and ▾ are already
+           proven here. A glyph can also only ever render as the wrong shape,
+           never as nothing, which is exactly how the SVG failed. The slash
+           for the muted state is drawn in CSS. -->
+      <button id="mute" class="pill mute-toggle" aria-pressed="false"
+              aria-label="Mute"><span aria-hidden="true">&#9834;</span></button>
     </header>
 
     <button id="nav-prev" class="nav-arrow prev" aria-label="Previous scene">&#8249;</button>
