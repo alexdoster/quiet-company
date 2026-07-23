@@ -5,7 +5,7 @@
 // Bump alongside CACHE in sw.js on every deploy — this is the only
 // user-visible confirmation that a phone has picked up the latest build
 // (shown small, bottom-right, home screen only).
-const APP_VERSION = 42;
+const APP_VERSION = 43;
 
 // Scene labels are provisional placeholders — Alex finalizes the names.
 const SCENES = [
@@ -1233,8 +1233,11 @@ chimeSelect.addEventListener('change', () => {
   // Preview on pick — choosing a sound you cannot hear is not a choice.
   // This is also why the voice picker carries no caption: hearing it beats
   // reading about it, which is what let the other four notes go in v41.
-  ensureAudio();
-  strike('end', 0, 0.14, 4);
+  // Render the new voice if it's the first time, then play its end clip; the
+  // change is a user gesture, so the play lands inside the activation window.
+  ensureVoiceRendered(chimeVoice).then((urls) => {
+    if (urls) new Audio(urls.end).play().catch(() => {});
+  });
 });
 
 prepSelect.addEventListener('change', () => {
@@ -1278,7 +1281,7 @@ function hideSheet() {
 $('#settings-open').addEventListener('click', () => showSheet(settingsSheet));
 
 $('#sound-open').addEventListener('click', () => {
-  ensureAudio();
+  unlockAudio();
   renderSound();
   showSheet(soundSheet);
 });
@@ -1294,7 +1297,7 @@ window.addEventListener('keydown', (event) => {
 /* ---------- Flow buttons ---------- */
 
 $('#choose').addEventListener('click', () => {
-  ensureAudio(); // user gesture — safe moment to unlock WebAudio on iOS
+  unlockAudio(); // user gesture — prime media playback for the coming session
   renderSound();
   setUIState('setup');
 });
@@ -1306,7 +1309,7 @@ toHomeBtn.addEventListener('click', () => setUIState('home'));
 gagBtn.addEventListener('click', playGag);
 
 $('#begin').addEventListener('click', () => {
-  ensureAudio();
+  unlockAudio();
   startSession(openEnded ? 'open' : sessionMinutes);
 });
 
@@ -1336,7 +1339,6 @@ document.addEventListener('visibilitychange', () => {
   if (document.visibilityState !== 'visible') return;
   if (uiState !== 'home') playActiveVideo();
   if (gagPlaying) gagVideo.play().catch(cancelGag);
-  if (audioCtx?.state === 'suspended') audioCtx.resume();
   if (uiState === 'running') {
     acquireWakeLock();
     if (timer.prepEndAt) return; // the tick owns the settle window
@@ -1351,79 +1353,75 @@ document.addEventListener('visibilitychange', () => {
   }
 });
 
-/* ---------- Audio buses ---------- */
+/* ---------- Chimes ----------
+   Synthesized from the voice definitions below, but rendered offline into
+   short WAV clips and played through <audio> elements rather than live Web
+   Audio. The pipe is the whole point (v43): iOS silences live Web Audio under
+   the hardware mute switch but lets media elements through — proven, since the
+   music (an <audio>) plays on silent while the old Web Audio chimes did not.
+   Same synthesized sound, a path that survives silent mode, and still no
+   shipped asset: the clip is generated in the browser, so there's nothing to
+   license and nothing for the service worker to cache.
 
-/* There is no global mute. It was dropped in v39 along with the header
-   button: music already had its own off switch sitting in the same
-   section, so mute mostly duplicated a control right above it. Volume
-   buttons remain the real everything-off and always work on media. */
+   There is also no global mute (dropped in v39) and no chimes on/off switch
+   (dropped in v41) — start and end are the timer's signal. The phone's volume
+   buttons are the only silence, and now they work the way a timer should:
+   turning the ringer off no longer takes the end chime with it. */
 
-let audioCtx = null;
-let masterGain = null; // the chimes' bus
-
-function ensureAudio() {
-  const Ctx = window.AudioContext || window.webkitAudioContext;
-  if (!Ctx) return;
-  if (!audioCtx) audioCtx = new Ctx();
-  if (audioCtx.state === 'suspended') audioCtx.resume();
-  if (!masterGain) {
-    masterGain = audioCtx.createGain();
-    masterGain.gain.value = 1;
-    masterGain.connect(audioCtx.destination);
-  }
-}
-
-/* ---------- Chimes (synthesized — no audio asset, no licensing) ---------- */
-
-/* ---------- Chime voices ----------
-   All synthesized, per the same reasoning as the original bell: no audio
-   file means no licensing question and nothing new for the service worker
-   to mishandle. Each voice picks its own pitches per role, because a gong
-   at the bell's C5 does not read as a gong. Within every voice the three
-   roles stay pitch-separated, so a minute marker is never mistaken for the
-   session ending.
-
-   `note` is no longer rendered — v41 dropped the caption under the picker,
-   since previewing a voice on pick tells you more than a sentence can. Kept
-   because it describes each voice's character next to the numbers that
-   produce it, which is the useful place for it when tuning them. */
+/* The offline render target that partial()/noiseBurst() build into. Set by
+   renderRole() just before it runs a voice's strike, so the voice definitions
+   below stay identical to the live-Web-Audio version — only the destination
+   changed. Nothing outside renderRole touches these. */
+let rctx = null;
+let rdest = null;
 
 // One struck partial. `attack` doubles as the bloom control: giving upper
 // partials a later attack than the fundamental is what separates a gong's
 // swelling shimmer from a bell's instant strike.
 function partial(t, freq, peak, attack, decay) {
-  const osc = audioCtx.createOscillator();
-  const gain = audioCtx.createGain();
+  const osc = rctx.createOscillator();
+  const gain = rctx.createGain();
   osc.type = 'sine';
   osc.frequency.value = freq;
   gain.gain.setValueAtTime(0.0001, t);
   gain.gain.exponentialRampToValueAtTime(Math.max(peak, 0.0002), t + attack);
   gain.gain.exponentialRampToValueAtTime(0.0001, t + attack + decay);
-  osc.connect(gain).connect(masterGain);
+  osc.connect(gain).connect(rdest);
   osc.start(t);
   osc.stop(t + attack + decay + 0.1);
 }
 
 // The non-pitched part of a strike: mallet contact, or a gong's crash.
 function noiseBurst(t, peak, decay, freq, q) {
-  const len = Math.max(1, Math.floor(audioCtx.sampleRate * decay));
-  const buf = audioCtx.createBuffer(1, len, audioCtx.sampleRate);
+  const len = Math.max(1, Math.floor(rctx.sampleRate * decay));
+  const buf = rctx.createBuffer(1, len, rctx.sampleRate);
   const data = buf.getChannelData(0);
   for (let i = 0; i < len; i++) {
     data[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 2.5);
   }
-  const src = audioCtx.createBufferSource();
+  const src = rctx.createBufferSource();
   src.buffer = buf;
-  const bp = audioCtx.createBiquadFilter();
+  const bp = rctx.createBiquadFilter();
   bp.type = 'bandpass';
   bp.frequency.value = freq;
   bp.Q.value = q;
-  const gain = audioCtx.createGain();
+  const gain = rctx.createGain();
   gain.gain.value = peak;
-  src.connect(bp).connect(gain).connect(masterGain);
+  src.connect(bp).connect(gain).connect(rdest);
   src.start(t);
   src.stop(t + decay + 0.05);
 }
+
+/* ---------- Chime voices ----------
+   Each voice picks its own pitches per role, because a gong at the bell's C5
+   does not read as a gong. Within every voice the three roles stay
+   pitch-separated, so a minute marker is never mistaken for the session
+   ending.
+
+   `note` is no longer rendered — v41 dropped the caption under the picker,
+   since previewing a voice on pick tells you more than a sentence can. Kept
+   because it describes each voice's character next to the numbers that
+   produce it, which is the useful place for it when tuning them. */
 
 const VOICES = {
   bell: {
@@ -1498,38 +1496,120 @@ const VOICES = {
   },
 };
 
-function currentVoice() {
-  return VOICES[chimeVoice] || VOICES.bell;
+/* One clip per role. Start and interval are a single strike; end is struck
+   twice, 1.6s apart, so completion reads as deliberate rather than as one
+   more marker. These `peak`/`decay` values and the double end-strike are what
+   the live strike() used to pass — the sound is unchanged, only pre-rendered. */
+const CHIME_HITS = {
+  start: [{ at: 0, peak: 0.10, decay: 2.5 }],
+  interval: [{ at: 0, peak: 0.09, decay: 3.5 }],
+  end: [{ at: 0, peak: 0.14, decay: 4 }, { at: 1.6, peak: 0.14, decay: 5 }],
+};
+const CHIME_LEAD = 0.02; // a breath of silence before the strike, so no click at t=0
+
+function renderRole(voice, role) {
+  const OfflineCtx = window.OfflineAudioContext || window.webkitOfflineAudioContext;
+  const rate = 44100;
+  const hits = CHIME_HITS[role];
+  const last = hits[hits.length - 1];
+  // Long enough for the final strike's full decay (scaled per voice) plus the
+  // gong's staggered-attack bloom; capped so a long tail can't run away.
+  const seconds = Math.min(
+    CHIME_LEAD + last.at + last.decay * voice.decayScale + 1.2,
+    16
+  );
+  const ctx = new OfflineCtx(1, Math.ceil(seconds * rate), rate);
+  rctx = ctx;
+  rdest = ctx.destination;
+  for (const h of hits) {
+    voice.strike(CHIME_LEAD + h.at, voice.freq[role], h.peak, h.decay * voice.decayScale);
+  }
+  return ctx.startRendering();
 }
 
-function strike(role, delaySeconds, peak, decaySeconds) {
-  if (!audioCtx || !masterGain) return;
-  const voice = currentVoice();
-  voice.strike(audioCtx.currentTime + delaySeconds, voice.freq[role],
-               peak, decaySeconds * voice.decayScale);
+// AudioBuffer -> 16-bit PCM WAV blob URL. Mono, in-memory; the URL is held
+// on chimeUrls for the app's life (one small set per voice actually used).
+function bufToWavUrl(buffer) {
+  const len = buffer.length;
+  const rate = buffer.sampleRate;
+  const data = buffer.getChannelData(0);
+  const ab = new ArrayBuffer(44 + len * 2);
+  const view = new DataView(ab);
+  const str = (o, s) => {
+    for (let i = 0; i < s.length; i++) view.setUint8(o + i, s.charCodeAt(i));
+  };
+  str(0, 'RIFF'); view.setUint32(4, 36 + len * 2, true); str(8, 'WAVE');
+  str(12, 'fmt '); view.setUint32(16, 16, true); view.setUint16(20, 1, true);
+  view.setUint16(22, 1, true); view.setUint32(24, rate, true);
+  view.setUint32(28, rate * 2, true); view.setUint16(32, 2, true);
+  view.setUint16(34, 16, true);
+  str(36, 'data'); view.setUint32(40, len * 2, true);
+  let off = 44;
+  for (let i = 0; i < len; i++) {
+    const s = Math.max(-1, Math.min(1, data[i]));
+    view.setInt16(off, s < 0 ? s * 0x8000 : s * 0x7fff, true);
+    off += 2;
+  }
+  return URL.createObjectURL(new Blob([ab], { type: 'audio/wav' }));
 }
 
-/* Unconditional as of v41 — see the note by the music state for why the
-   on/off switch went. chimeInterval() is only ever called when the user has
-   set an interval, so it needs no gate of its own. */
+// voice id -> { start, interval, end } blob URLs, rendered on demand and kept.
+const chimeUrls = {};
 
-function chimeStart() {
-  ensureAudio();
-  strike('start', 0.1, 0.1, 2.5);
+async function ensureVoiceRendered(voice) {
+  if (chimeUrls[voice]) return chimeUrls[voice];
+  if (!(window.OfflineAudioContext || window.webkitOfflineAudioContext)) return null;
+  try {
+    const roles = ['start', 'interval', 'end'];
+    const buffers = await Promise.all(roles.map((r) => renderRole(VOICES[voice], r)));
+    const urls = {};
+    roles.forEach((r, i) => { urls[r] = bufToWavUrl(buffers[i]); });
+    chimeUrls[voice] = urls;
+    return urls;
+  } catch {
+    return null; // offline render unsupported/failed — session still runs, silent
+  }
 }
 
-function chimeInterval() {
-  ensureAudio();
-  strike('interval', 0, 0.09, 3.5);
+/* Play a role through a fresh media element — the same pattern the music uses,
+   which is exactly what carries it past the iOS mute switch. Unconditional as
+   of v41: start and end are the timer's signal. chimeInterval only fires when
+   the user has set an interval, so it needs no gate of its own. */
+function playChime(role) {
+  const urls = chimeUrls[chimeVoice];
+  if (!urls) { ensureVoiceRendered(chimeVoice); return; } // warm it for next time
+  new Audio(urls[role]).play().catch(() => {});
 }
 
-function chimeEnd() {
-  ensureAudio();
-  // Struck twice, slowly, so completion reads as deliberate rather than as
-  // one more marker.
-  strike('end', 0, 0.14, 4);
-  strike('end', 1.6, 0.14, 5);
+function chimeStart() { playChime('start'); }
+function chimeInterval() { playChime('interval'); }
+function chimeEnd() { playChime('end'); }
+
+/* iOS only lets the page play audio programmatically after one playback has
+   started from a user gesture. No-prep sessions get that for free — the start
+   chime or the music plays inside the Begin tap. But a session with a prep
+   pause plays nothing during the tap, so its first sound would be the
+   post-prep start chime, which iOS would block. Priming a silent clip on the
+   flow taps covers that case. */
+let silentUrl = null;
+let audioUnlocked = false;
+
+function unlockAudio() {
+  if (audioUnlocked || !silentUrl) return;
+  new Audio(silentUrl).play().then(() => { audioUnlocked = true; }).catch(() => {});
 }
+
+// Both offline, no gesture needed: warm the current voice and build the silent
+// primer at boot, so a clip is ready before the first Begin.
+ensureVoiceRendered(chimeVoice);
+(function makeSilentPrimer() {
+  const OfflineCtx = window.OfflineAudioContext || window.webkitOfflineAudioContext;
+  if (!OfflineCtx) return;
+  new OfflineCtx(1, 800, 8000)
+    .startRendering()
+    .then((buf) => { silentUrl = bufToWavUrl(buf); })
+    .catch(() => {});
+})();
 
 /* ---------- Soundtrack playback ----------
    Full compositions, not texture — played as whole tracks via a plain
