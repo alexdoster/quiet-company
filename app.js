@@ -5,7 +5,7 @@
 // Bump alongside CACHE in sw.js on every deploy — this is the only
 // user-visible confirmation that a phone has picked up the latest build
 // (shown small, bottom-right, home screen only).
-const APP_VERSION = 44;
+const APP_VERSION = 45;
 
 // Scene labels are provisional placeholders — Alex finalizes the names.
 const SCENES = [
@@ -1023,6 +1023,26 @@ function readDuration() {
 
 hoursSelect.addEventListener('change', readDuration);
 minutesSelect.addEventListener('change', readDuration);
+
+// Same-value gap: while ∞ is on the dropdowns show the retained length, so
+// opening one and re-picking that same number fires no 'change' and
+// readDuration never runs — ∞ stays on though you just chose a length.
+// Engaging the control at all is the intent, so clear ∞ on pointerdown, the
+// moment the picker opens, before any value is (or isn't) committed. Only
+// the state and the visual cue change here, not the value; a real change
+// still routes through readDuration as normal.
+function leaveOpenOnPick() {
+  if (!openEnded) return;
+  openEnded = false;
+  store.set('openEnded', false);
+  openToggle.classList.remove('selected');
+  openToggle.setAttribute('aria-pressed', 'false');
+  hoursField.classList.remove('dim');
+  minutesField.classList.remove('dim');
+}
+for (const select of [hoursSelect, minutesSelect]) {
+  select.addEventListener('pointerdown', leaveOpenOnPick);
+}
 
 openToggle.addEventListener('click', () => {
   openEnded = !openEnded;
