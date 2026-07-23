@@ -5,7 +5,7 @@
 // Bump alongside CACHE in sw.js on every deploy — this is the only
 // user-visible confirmation that a phone has picked up the latest build
 // (shown small, bottom-right, home screen only).
-const APP_VERSION = 30;
+const APP_VERSION = 31;
 
 // Scene labels are provisional placeholders — Alex finalizes the names.
 const SCENES = [
@@ -149,7 +149,6 @@ const SWIPE_MIN = 48; // px of horizontal travel that counts as a swipe
 
 // Interval bells ring on their own pitch, between the start chime's G4 and
 // the completion C5, so a marker never reads as the session ending.
-const BELL_FREQ = 440;
 // Don't ring an interval bell this close to completion — it would collide
 // with the end chime instead of marking anything.
 const BELL_END_GUARD_MS = 5000;
@@ -195,6 +194,8 @@ const clockSelect = $('#clock-select');
 const clockNoteEl = $('#clock-note');
 const bellsSelect = $('#bells-select');
 const prepSelect = $('#prep-select');
+const chimeSelect = $('#chime-select');
+const chimeNoteEl = $('#chime-note');
 
 /* ---------- Persistence ---------- */
 
@@ -600,8 +601,7 @@ function maybeFireIntervalBell() {
   if (n <= lastBellInterval) return;
   lastBellInterval = n;
   if (!timer.openEnded && timer.remainingMs <= BELL_END_GUARD_MS) return;
-  ensureAudio();
-  bell(0, BELL_FREQ, 0.09, 3.5);
+  chimeInterval();
 }
 
 function formatTime(ms, round = Math.ceil) {
@@ -926,6 +926,7 @@ let countdownMode = store.get('countdownMode', 'always');
 let clockPosition = store.get('clockPosition', 'auto');
 let intervalBellMs = store.get('intervalBellMinutes', 0) * 60000;
 let prepSeconds = store.get('prepSeconds', 0);
+let chimeVoice = store.get('chimeVoice', 'bell');
 
 function applySettings() {
   // Drives the countdown's visibility rules in CSS. On body rather than
@@ -938,6 +939,8 @@ function applySettings() {
   clockSelect.value = clockPosition;
   bellsSelect.value = String(intervalBellMs / 60000);
   prepSelect.value = String(prepSeconds);
+  chimeSelect.value = chimeVoice;
+  chimeNoteEl.textContent = currentVoice().note;
 }
 
 countdownSelect.addEventListener('change', () => {
@@ -961,6 +964,16 @@ bellsSelect.addEventListener('change', () => {
   lastBellInterval = intervalBellMs
     ? Math.floor(timer.elapsedMs / intervalBellMs)
     : 0;
+});
+
+chimeSelect.addEventListener('change', () => {
+  chimeVoice = chimeSelect.value;
+  store.set('chimeVoice', chimeVoice);
+  applySettings();
+  // Preview on pick — choosing a sound you cannot hear is not a choice.
+  // Routed through masterGain like everything else, so mute silences it.
+  ensureAudio();
+  strike('end', 0, 0.14, 4);
 });
 
 prepSelect.addEventListener('change', () => {
@@ -1116,33 +1129,151 @@ muteBtn.addEventListener('click', () => {
 
 /* ---------- Chimes (synthesized — no audio asset, no licensing) ---------- */
 
-// Inharmonic partials make a struck-bell timbre instead of a pure beep.
-function bell(delaySeconds, frequency, peak, decaySeconds) {
-  if (!audioCtx || !masterGain) return;
-  const t = audioCtx.currentTime + delaySeconds;
-  for (const [ratio, amount] of [[1, 1], [2.76, 0.35], [5.4, 0.1]]) {
-    const osc = audioCtx.createOscillator();
-    const gain = audioCtx.createGain();
-    osc.type = 'sine';
-    osc.frequency.value = frequency * ratio;
-    gain.gain.setValueAtTime(0.0001, t);
-    gain.gain.exponentialRampToValueAtTime(peak * amount, t + 0.02);
-    gain.gain.exponentialRampToValueAtTime(0.0001, t + decaySeconds);
-    osc.connect(gain).connect(masterGain);
-    osc.start(t);
-    osc.stop(t + decaySeconds + 0.1);
+/* ---------- Chime voices ----------
+   All synthesized, per the same reasoning as the original bell: no audio
+   file means no licensing question and nothing new for the service worker
+   to mishandle. Each voice picks its own pitches per role, because a gong
+   at the bell's C5 does not read as a gong. Within every voice the three
+   roles stay pitch-separated, so a minute marker is never mistaken for the
+   session ending. */
+
+// One struck partial. `attack` doubles as the bloom control: giving upper
+// partials a later attack than the fundamental is what separates a gong's
+// swelling shimmer from a bell's instant strike.
+function partial(t, freq, peak, attack, decay) {
+  const osc = audioCtx.createOscillator();
+  const gain = audioCtx.createGain();
+  osc.type = 'sine';
+  osc.frequency.value = freq;
+  gain.gain.setValueAtTime(0.0001, t);
+  gain.gain.exponentialRampToValueAtTime(Math.max(peak, 0.0002), t + attack);
+  gain.gain.exponentialRampToValueAtTime(0.0001, t + attack + decay);
+  osc.connect(gain).connect(masterGain);
+  osc.start(t);
+  osc.stop(t + attack + decay + 0.1);
+}
+
+// The non-pitched part of a strike: mallet contact, or a gong's crash.
+function noiseBurst(t, peak, decay, freq, q) {
+  const len = Math.max(1, Math.floor(audioCtx.sampleRate * decay));
+  const buf = audioCtx.createBuffer(1, len, audioCtx.sampleRate);
+  const data = buf.getChannelData(0);
+  for (let i = 0; i < len; i++) {
+    data[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 2.5);
   }
+  const src = audioCtx.createBufferSource();
+  src.buffer = buf;
+  const bp = audioCtx.createBiquadFilter();
+  bp.type = 'bandpass';
+  bp.frequency.value = freq;
+  bp.Q.value = q;
+  const gain = audioCtx.createGain();
+  gain.gain.value = peak;
+  src.connect(bp).connect(gain).connect(masterGain);
+  src.start(t);
+  src.stop(t + decay + 0.05);
+}
+
+const VOICES = {
+  bell: {
+    label: 'Bell',
+    note: 'The original. Bright and clean, carries over ambience.',
+    freq: { start: 392, interval: 440, end: 523.25 },
+    decayScale: 1,
+    strike(t, freq, peak, decay) {
+      for (const [ratio, amount] of [[1, 1], [2.76, 0.35], [5.4, 0.1]]) {
+        partial(t, freq * ratio, peak * amount, 0.02, decay);
+      }
+    },
+  },
+
+  bowl: {
+    label: 'Singing bowl',
+    note: 'Slow swell and a long shimmer. Closest to the temple bed.',
+    freq: { start: 196, interval: 233.1, end: 174.6 },
+    decayScale: 2.6,
+    strike(t, freq, peak, decay) {
+      // Two oscillators a couple of cents apart on every partial. The slow
+      // beating between them is most of what makes a bowl sound like a bowl
+      // rather than like a soft bell.
+      for (const [ratio, amount, detune] of
+           [[1, 1, 0.7], [2.32, 0.4, 1.1], [3.86, 0.16, 1.6], [5.2, 0.07, 2.2]]) {
+        const d = decay * Math.max(0.3, 1 - ratio * 0.06);
+        partial(t, freq * ratio, peak * amount * 0.6, 0.08, d);
+        partial(t, freq * ratio + detune, peak * amount * 0.6, 0.08, d);
+      }
+    },
+  },
+
+  gong: {
+    label: 'Gong',
+    note: 'Low and wide, blooming after the strike. Longest tail of the five.',
+    freq: { start: 110, interval: 130.8, end: 87.3 },
+    decayScale: 3.2,
+    strike(t, freq, peak, decay) {
+      const ratios = [1, 1.41, 1.87, 2.24, 2.71, 3.16, 3.78, 4.31, 5.09, 6.02, 7.13];
+      ratios.forEach((ratio, i) => {
+        partial(t, freq * ratio, peak * Math.pow(ratio, -0.85),
+                0.02 + i * 0.09, decay * Math.max(0.3, 1 - i * 0.055));
+      });
+      noiseBurst(t, peak * 0.5, 0.5, freq * 6, 0.6);
+    },
+  },
+
+  glass: {
+    label: 'Glass',
+    note: 'High and delicate. Easy to miss under loud ambience.',
+    freq: { start: 784, interval: 932.3, end: 1046.5 },
+    decayScale: 0.8,
+    strike(t, freq, peak, decay) {
+      for (const [ratio, amount] of [[1, 1], [2.7, 0.3], [5.2, 0.12], [8.9, 0.05]]) {
+        partial(t, freq * ratio, peak * amount, 0.005, decay * 0.55);
+      }
+      noiseBurst(t, peak * 0.18, 0.06, freq * 3, 2);
+    },
+  },
+
+  wood: {
+    label: 'Temple block',
+    note: 'A dry knock with no tail. Marks time without ringing on.',
+    freq: { start: 294, interval: 349.2, end: 246.9 },
+    decayScale: 0.15,
+    strike(t, freq, peak, decay) {
+      for (const [ratio, amount] of [[1, 1], [2.9, 0.5], [5.7, 0.2]]) {
+        partial(t, freq * ratio, peak * amount, 0.002, Math.min(decay, 0.35));
+      }
+      noiseBurst(t, peak * 0.5, 0.05, freq * 4, 1.2);
+    },
+  },
+};
+
+function currentVoice() {
+  return VOICES[chimeVoice] || VOICES.bell;
+}
+
+function strike(role, delaySeconds, peak, decaySeconds) {
+  if (!audioCtx || !masterGain) return;
+  const voice = currentVoice();
+  voice.strike(audioCtx.currentTime + delaySeconds, voice.freq[role],
+               peak, decaySeconds * voice.decayScale);
 }
 
 function chimeStart() {
   ensureAudio();
-  bell(0.1, 392, 0.1, 2.5); // single soft G4
+  strike('start', 0.1, 0.1, 2.5);
+}
+
+function chimeInterval() {
+  ensureAudio();
+  strike('interval', 0, 0.09, 3.5);
 }
 
 function chimeEnd() {
   ensureAudio();
-  bell(0, 523.25, 0.14, 4); // C5, struck twice, slow
-  bell(1.6, 523.25, 0.14, 5);
+  // Struck twice, slowly, so completion reads as deliberate rather than as
+  // one more marker.
+  strike('end', 0, 0.14, 4);
+  strike('end', 1.6, 0.14, 5);
 }
 
 /* ---------- Soundtrack playback ----------
