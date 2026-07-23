@@ -5,7 +5,7 @@
 // Bump alongside CACHE in sw.js on every deploy — this is the only
 // user-visible confirmation that a phone has picked up the latest build
 // (shown small, bottom-right, home screen only).
-const APP_VERSION = 36;
+const APP_VERSION = 37;
 
 // Scene labels are provisional placeholders — Alex finalizes the names.
 const SCENES = [
@@ -203,9 +203,6 @@ const TRIAD_REST_MAX_MS = 300000;
 const TEXT_TAIL = 0.9;
 const TEXT_FADE_MS = 600; // must match the .text-line CSS transition
 
-const CUSTOM_DEFAULT = 20;
-const CUSTOM_MIN = 1;
-const CUSTOM_MAX = 120;
 const REST_DELAY = 4000; // ms of stillness before the UI fades during a session
 const SWIPE_MIN = 48; // px of horizontal travel that counts as a swipe
 
@@ -229,9 +226,11 @@ const panels = {
   session: $('#session'),
   complete: $('#complete'),
 };
-const durationGroup = $('#durations');
-const customRow = $('#custom-row');
-const customValue = $('#custom-value');
+const hoursField = $('#hours-field');
+const minutesField = $('#minutes-field');
+const hoursSelect = $('#hours-select');
+const minutesSelect = $('#minutes-select');
+const openToggle = $('#open-toggle');
 const countdownEl = $('#countdown');
 const pauseBtn = $('#pause');
 const muteBtn = $('#mute');
@@ -970,41 +969,91 @@ function scheduleRest() {
   }
 }
 
-/* ---------- Duration picker ---------- */
+/* ---------- Duration picker ----------
+   Two native selects (hours, minutes) plus the open-ended toggle, replacing
+   the 5/10/15/Custom pill row and its +/- stepper. The stepper was the
+   problem Alex actually hit — reaching 45 minutes meant 25 taps — and once
+   any length is one gesture away, fixed presets stop earning their space.
 
-let selectedChoice = store.get('duration', 10); // minutes, 'custom', or 'open'
-let customMinutes = store.get('customMinutes', CUSTOM_DEFAULT);
+   Native selects rather than a custom wheel for the same reason v14 chose
+   them for the sound controls: iOS renders a <select> as its own wheel
+   picker, which is exactly the Insight Timer control, with no custom
+   picker code and no accessibility work to redo. */
 
-// 'open' and 'custom' stay strings; everything else is a minute count.
-function durationValue(btn) {
-  const raw = btn.dataset.minutes;
-  return raw === 'custom' || raw === 'open' ? raw : Number(raw);
+const MIN_MINUTES = 1;
+const MAX_MINUTES = 180;
+
+function clampMinutes(n) {
+  return Math.min(MAX_MINUTES, Math.max(MIN_MINUTES, Math.round(n) || 0));
+}
+
+// Sessions saved under the old pill model carry over rather than silently
+// resetting to the default: 'custom' takes the stepper's value, a preset
+// takes its own, and 'open' becomes the toggle.
+function storedMinutes() {
+  const saved = store.get('durationMinutes', null);
+  if (saved !== null) return clampMinutes(saved);
+  const legacy = store.get('duration', 10);
+  if (legacy === 'custom') return clampMinutes(store.get('customMinutes', 20));
+  return typeof legacy === 'number' ? clampMinutes(legacy) : 10;
+}
+
+function storedOpen() {
+  const saved = store.get('openEnded', null);
+  return saved === null ? store.get('duration', 10) === 'open' : !!saved;
+}
+
+let sessionMinutes = storedMinutes();
+let openEnded = storedOpen();
+
+for (let h = 0; h <= Math.floor(MAX_MINUTES / 60); h++) {
+  const option = document.createElement('option');
+  option.value = String(h);
+  option.textContent = `${h} h`;
+  hoursSelect.appendChild(option);
+}
+for (let m = 0; m < 60; m++) {
+  const option = document.createElement('option');
+  option.value = String(m);
+  option.textContent = `${m} min`;
+  minutesSelect.appendChild(option);
 }
 
 function renderDurations() {
-  for (const btn of durationGroup.children) {
-    btn.classList.toggle('selected', durationValue(btn) === selectedChoice);
+  hoursSelect.value = String(Math.floor(sessionMinutes / 60));
+  minutesSelect.value = String(sessionMinutes % 60);
+  openToggle.classList.toggle('selected', openEnded);
+  openToggle.setAttribute('aria-pressed', String(openEnded));
+  // The length controls stay visible while open-ended is on, rather than
+  // being hidden — the value they hold is what you come back to when you
+  // switch the toggle off, and a control that vanishes reads as broken.
+  for (const field of [hoursField, minutesField]) {
+    field.classList.toggle('disabled', openEnded);
   }
-  customRow.classList.toggle('collapsed', selectedChoice !== 'custom');
-  customValue.textContent = `${customMinutes} min`;
+  for (const select of [hoursSelect, minutesSelect]) {
+    select.disabled = openEnded;
+  }
 }
 
-durationGroup.addEventListener('click', (event) => {
-  const btn = event.target.closest('.duration');
-  if (!btn) return;
-  selectedChoice = durationValue(btn);
-  store.set('duration', selectedChoice);
+function readDuration() {
+  // Clamps rather than refusing: 3 h 30 min lands on the 3 h maximum and
+  // 0 h 0 min on one minute, both visibly, instead of leaving Start armed
+  // with a length the app can't run.
+  sessionMinutes = clampMinutes(
+    Number(hoursSelect.value) * 60 + Number(minutesSelect.value)
+  );
+  store.set('durationMinutes', sessionMinutes);
+  renderDurations();
+}
+
+hoursSelect.addEventListener('change', readDuration);
+minutesSelect.addEventListener('change', readDuration);
+
+openToggle.addEventListener('click', () => {
+  openEnded = !openEnded;
+  store.set('openEnded', openEnded);
   renderDurations();
 });
-
-function nudgeCustom(delta) {
-  customMinutes = Math.min(CUSTOM_MAX, Math.max(CUSTOM_MIN, customMinutes + delta));
-  store.set('customMinutes', customMinutes);
-  renderDurations();
-}
-
-$('#custom-minus').addEventListener('click', () => nudgeCustom(-1));
-$('#custom-plus').addEventListener('click', () => nudgeCustom(1));
 
 /* ---------- Sound picker (all scenes, everything off by default) ----------
    One unified section on the setup screen, as two native dropdowns —
@@ -1308,7 +1357,7 @@ gagBtn.addEventListener('click', playGag);
 
 $('#begin').addEventListener('click', () => {
   ensureAudio();
-  startSession(selectedChoice === 'custom' ? customMinutes : selectedChoice);
+  startSession(openEnded ? 'open' : sessionMinutes);
 });
 
 pauseBtn.addEventListener('click', togglePause);

@@ -63,27 +63,41 @@
       <section id="setup" class="panel" aria-label="Session length">
         <p class="prompt">How long would you like to sit?</p>
         <div id="durations" class="durations" role="group" aria-label="Session length">
-          <button class="pill duration" data-minutes="5">5 min</button>
-          <button class="pill duration" data-minutes="10">10 min</button>
-          <button class="pill duration" data-minutes="15">15 min</button>
-          <button class="pill duration" data-minutes="custom">Custom</button>
-          <button class="pill duration duration-open" data-minutes="open"
+          <!-- No visible label on these two: the options already carry their
+               unit ("0 h", "12 min"), so a label restates it and pushed the
+               row past the width of a portrait phone. The prompt above says
+               what the row is for; aria-label carries it for screen readers. -->
+          <label class="select-field compact" id="hours-field">
+            <select id="hours-select" aria-label="Hours"></select>
+          </label>
+          <label class="select-field compact" id="minutes-field">
+            <select id="minutes-select" aria-label="Minutes"></select>
+          </label>
+          <button id="open-toggle" class="pill duration-open" aria-pressed="false"
                   aria-label="Open ended, no set length">&#8734;</button>
-        </div>
-        <div id="custom-row" class="custom-row">
-          <button id="custom-minus" class="step" aria-label="One minute less">&minus;</button>
-          <span id="custom-value" class="custom-value">20 min</span>
-          <button id="custom-plus" class="step" aria-label="One minute more">+</button>
         </div>
         <div class="option-row">
           <label class="select-field">
             <span class="select-label">Prep time</span>
             <select id="prep-select">
               <option value="0">No pause</option>
+              <option value="5">5 seconds</option>
               <option value="10">10 seconds</option>
               <option value="20">20 seconds</option>
               <option value="30">30 seconds</option>
               <option value="60">1 minute</option>
+            </select>
+          </label>
+          <label class="select-field">
+            <span class="select-label">Bells</span>
+            <select id="bells-select">
+              <option value="0">Off</option>
+              <option value="1">Every minute</option>
+              <option value="2">Every 2 minutes</option>
+              <option value="3">Every 3 minutes</option>
+              <option value="5">Every 5 minutes</option>
+              <option value="10">Every 10 minutes</option>
+              <option value="15">Every 15 minutes</option>
             </select>
           </label>
         </div>
@@ -188,21 +202,6 @@
       </span>
     </label>
     <p class="sheet-note" id="textstyle-note"></p>
-
-    <label class="sheet-row">
-      <span class="sheet-label">Interval bells</span>
-      <span class="select-shell">
-        <select id="bells-select">
-          <option value="0">Off</option>
-          <option value="1">Every minute</option>
-          <option value="2">Every 2 minutes</option>
-          <option value="3">Every 3 minutes</option>
-          <option value="5">Every 5 minutes</option>
-          <option value="10">Every 10 minutes</option>
-          <option value="15">Every 15 minutes</option>
-        </select>
-      </span>
-    </label>
 
     <label class="sheet-row">
       <span class="sheet-label">Chime sound</span>

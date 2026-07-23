@@ -602,9 +602,26 @@ body.at-home .scrim {
 .durations {
   display: flex;
   justify-content: center;
+  align-items: center; /* pill and select-fields differ slightly in height */
   flex-wrap: wrap;
   gap: 10px;
   margin-bottom: 16px;
+}
+
+/* Label-less variant, for controls whose options already state their unit. */
+.select-field.compact {
+  padding-left: 14px;
+}
+
+.select-field.compact select {
+  font-variant-numeric: tabular-nums; /* the row doesn't twitch on 9 -> 10 */
+}
+
+/* Open-ended on: the hours/minutes fields stay in place but stop taking
+   input, so the length you'd return to is still readable. */
+.select-field.disabled {
+  opacity: 0.4;
+  pointer-events: none;
 }
 
 /* Open-ended sessions, shown as ∞. A text glyph rather than an SVG — the
@@ -620,56 +637,11 @@ body.at-home .scrim {
   line-height: 18px;
 }
 
-.custom-row {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  gap: 18px;
-  margin-bottom: 18px;
-  max-height: 60px;
-  opacity: 1;
-  transition: opacity 0.4s var(--ease), max-height 0.4s var(--ease);
-}
-
-.custom-row.collapsed {
-  max-height: 0;
-  opacity: 0;
-  margin-bottom: 0;
-  pointer-events: none;
-  overflow: hidden;
-}
-
-.step {
-  appearance: none;
-  width: 44px;
-  height: 44px;
-  border-radius: 50%;
-  border: 1px solid var(--glass-border);
-  background: var(--glass);
-  -webkit-backdrop-filter: blur(20px);
-  backdrop-filter: blur(20px);
-  color: var(--ink);
-  font-size: 20px;
-  line-height: 1;
-  cursor: pointer;
-  transition: transform 0.15s var(--ease);
-}
-
-.step:active {
-  transform: scale(0.94);
-}
-
-.custom-value {
-  min-width: 84px;
-  font-size: 17px;
-  font-weight: 300;
-  font-variant-numeric: tabular-nums;
-}
-
-/* Wider than the other panels' 420px so the five duration pills hold one
-   row — wrapping "Open" onto its own line costs ~44px of height, which a
-   390px-tall landscape phone can't spare. No effect in portrait, where
-   the viewport is narrower than either figure. */
+/* Wider than the other panels' 420px so the length row (hours, minutes and
+   the open-ended toggle) holds one line — wrapping the ∞ pill onto its own
+   row costs ~44px of height, which a 390px-tall landscape phone can't
+   spare. No effect in portrait, where the viewport is narrower than either
+   figure. */
 #setup {
   max-width: 470px;
 }
@@ -680,9 +652,10 @@ body.at-home .scrim {
   gap: 12px;
 }
 
-/* Settle sits with Start rather than in Settings: it's a property of the
-   session you're about to begin, like its length, not a set-once
-   preference. Same centred pill row as the sound selects below. */
+/* Prep time and interval bells sit with Start rather than in Settings:
+   both are properties of the session you're about to begin, like its
+   length, not set-once preferences. Same centred pill row as the sound
+   selects below. */
 
 .option-row {
   display: flex;
@@ -1163,7 +1136,6 @@ body[data-clock="topright"] .state-paused .top {
   .top,
   .nav-arrow,
   .scene-name,
-  .custom-row,
   .home,
   .card,
   .sheet,
