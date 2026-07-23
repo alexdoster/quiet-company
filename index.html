@@ -46,9 +46,10 @@
   <main id="ui" class="state-browse">
     <header class="top">
       <button id="to-home" class="pill subtle home-btn">&#8249; Scenes</button>
-      <!-- No mute button. Every source now has its own switch in the Sound
-           section, and the phone's volume and silent switch are a faster
-           global mute than anything reachable through a sheet. -->
+      <!-- No mute button: music has its own off switch in the Sound
+           section, and the volume buttons silence everything else. NB the
+           iOS silent switch is NOT the escape hatch here — it can stop
+           Web Audio playing at all, which is a separate open question. -->
     </header>
 
     <button id="nav-prev" class="nav-arrow prev" aria-label="Previous scene">&#8249;</button>
@@ -106,13 +107,6 @@
         <div id="sound" class="sound-section">
           <p class="prompt-sub">Sound</p>
           <div class="sound-rows">
-            <label id="ambience-field" class="select-field hidden">
-              <span class="select-label">Ambience</span>
-              <select id="ambience-select">
-                <option value="off">Off</option>
-                <option value="on">On</option>
-              </select>
-            </label>
             <label class="select-field">
               <span class="select-label">Music</span>
               <select id="music-select"></select>
@@ -238,16 +232,6 @@
     <h2 class="sheet-title">Sound</h2>
 
     <div class="sheet-scroll">
-    <label class="sheet-row hidden" id="s-ambience-field">
-      <span class="sheet-label">Ambience</span>
-      <span class="select-shell">
-        <select id="s-ambience-select">
-          <option value="off">Off</option>
-          <option value="on">On</option>
-        </select>
-      </span>
-    </label>
-
     <label class="sheet-row">
       <span class="sheet-label">Music</span>
       <span class="select-shell">

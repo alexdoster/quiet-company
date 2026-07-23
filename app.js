@@ -5,7 +5,7 @@
 // Bump alongside CACHE in sw.js on every deploy — this is the only
 // user-visible confirmation that a phone has picked up the latest build
 // (shown small, bottom-right, home screen only).
-const APP_VERSION = 39;
+const APP_VERSION = 40;
 
 // Scene labels are provisional placeholders — Alex finalizes the names.
 const SCENES = [
@@ -85,33 +85,11 @@ const MARKER_INTERVAL_MS = 60000; // one pop-in per elapsed minute of session ti
 const VARIANT_HOLD_MS = 10000; // ~2 breath loops on the variant before returning
 const VARIANT_FADE_MS = 2000; // must match the .variant-video CSS crossfade
 
-// Ambient beds per scene, played only during a session (not while browsing).
-// Real recordings, not born-loopable — AmbienceEngine crossfades overlapping
-// copies at playback time rather than needing the files hand-edited.
-// See assets/audio/CREDITS.md for sourcing (all CC0, BigSoundBank).
-const AMBIENCE = {
-  monk: {
-    label: 'Temple bowl',
-    hum: true, // synthesized wordless drone, layered under the bowl
-    layers: [{ src: 'assets/audio/temple-bowl.mp3', gain: 0.5, crossfade: 3 }],
-  },
-  hammock: {
-    label: 'Cicadas & campfire',
-    layers: [
-      { src: 'assets/audio/hammock-cicadas.mp3', gain: 0.4, crossfade: 2.5 },
-      { src: 'assets/audio/hammock-campfire.mp3', gain: 0.3, crossfade: 2.5 },
-    ],
-  },
-  horizon: {
-    label: 'Ocean waves',
-    layers: [{ src: 'assets/audio/horizon-waves.mp3', gain: 0.55, crossfade: 2.5 }],
-  },
-};
-
 // Optional full-track soundtrack, offered on every scene (was yoga-only
-// until v13). Unlike AMBIENCE above (texture, crossfade-looped), these
-// are real compositions with musical structure — played as whole tracks,
-// not loop-scheduled.
+// until v13), and since v40 the only audio the app plays besides the
+// chimes. Real compositions with musical structure, played as whole
+// tracks. Any ambient texture added back later lands here too, per Alex's
+// call when the separate ambience layer was removed.
 // Royalty-free (CC BY 4.0, Scott Buckley — attribution required, see
 // assets/audio/CREDITS.md), picked as mood-equivalents for the named
 // copyrighted artists Alex referenced, not copies of them; those can't
@@ -241,8 +219,6 @@ const musicCreditEl = $('.music-credit');
 // Sound controls exist twice — inline on the setup screen and inside the
 // in-session sound sheet — so they're addressed as pairs and kept in sync
 // by renderSound() rather than duplicating any state.
-const ambienceFields = [$('#ambience-field'), $('#s-ambience-field')];
-const ambienceSelects = [$('#ambience-select'), $('#s-ambience-select')];
 const musicSelects = [$('#music-select'), $('#s-music-select')];
 const chimeToggles = [$('#chimes-on'), $('#s-chimes-on')];
 
@@ -769,7 +745,7 @@ setInterval(() => {
   if (uiState !== 'running') return;
 
   // Settle window: nothing of the session has started yet — no chime, no
-  // ambience, no markers — the scene is just there to sit down in front of.
+  // music, no markers — the scene is just there to sit down in front of.
   if (timer.prepEndAt) {
     const left = timer.prepEndAt - Date.now();
     if (left > 0) {
@@ -887,7 +863,6 @@ function beginTimedPortion() {
   renderCountdown();
   chimeStart();
   if (SCENES[sceneIndex].type === 'text') startTextScript();
-  if (ambienceOn) Ambience.start(SCENES[sceneIndex].id);
   const track = currentMusicTrack();
   if (track) startMusic(track.src);
 }
@@ -904,7 +879,6 @@ function togglePause() {
     }
     pauseBtn.textContent = 'Resume';
     setUIState('paused');
-    Ambience.duck();
     musicAudio?.pause();
   } else if (uiState === 'paused') {
     if (timer.prepEndAt) {
@@ -917,7 +891,6 @@ function togglePause() {
     pauseBtn.textContent = 'Pause';
     setUIState('running');
     acquireWakeLock();
-    Ambience.unduck();
     musicAudio?.play().catch(() => {});
   }
 }
@@ -934,7 +907,6 @@ function endSession() {
   timer.prepEndAt = 0;
   countdownEl.classList.remove('prep');
   setUIState('browse');
-  Ambience.stop();
   stopMusic();
 }
 
@@ -944,7 +916,6 @@ function completeSession() {
   countdownEl.classList.remove('prep');
   setUIState('complete');
   chimeEnd();
-  Ambience.stop();
   stopMusic();
 }
 
@@ -1059,20 +1030,16 @@ openToggle.addEventListener('click', () => {
    One unified section on the setup screen, as two native dropdowns —
    compact enough for landscape phones (the pill rows this replaced
    pushed Back/Start off the bottom edge there), and iOS renders them
-   as its native wheel picker. Ambience offers Off / the scene's
-   matched bed, shown only where a bed exists; Music lists all six
-   tracks grouped by mood via optgroups (the old tap-again-to-cycle
-   trick isn't needed when a dropdown can just show everything). Both
-   default to off — sound is opt-in per Alex's call; the start/end
-   chimes are a timer function, not ambience, so they stay on
-   (governed only by the global mute). */
+   as its native wheel picker. Music lists all six tracks grouped by
+   mood via optgroups (the old tap-again-to-cycle trick isn't needed
+   when a dropdown can just show everything) and defaults to None —
+   sound is opt-in per Alex's call. */
 
-let ambienceOn = store.get('ambienceOn', false);
 let musicCategory = store.get('musicCategory', 'none');
 let musicTrackIndex = store.get('musicTrackIndex', 0);
 
-// Chimes stay on by default — they're a timer function, not ambience, which
-// is why they were exempt from the old sound-is-opt-in rule. Anyone who had
+// Chimes stay on by default — they're a timer function, not atmosphere,
+// which is why they were exempt from the sound-is-opt-in rule. Anyone who had
 // the global mute switched on wanted silence, and chimes were the only
 // source that mute covered which had no switch of its own, so their setting
 // carries over to this one rather than quietly turning sound back on.
@@ -1109,15 +1076,6 @@ function currentMusicTrack() {
 }
 
 function renderSound() {
-  const bed = AMBIENCE[SCENES[sceneIndex].id];
-  for (const field of ambienceFields) field.classList.toggle('hidden', !bed);
-  if (bed) {
-    for (const select of ambienceSelects) {
-      select.options[1].textContent = bed.label;
-      select.value = ambienceOn ? 'on' : 'off';
-    }
-  }
-
   const group = MUSIC.find((c) => c.id === musicCategory);
   const value = group
     ? `${musicCategory}:${musicTrackIndex % group.tracks.length}`
@@ -1130,23 +1088,13 @@ function renderSound() {
 
 /* Mid-session changes. Setup-screen changes land before anything is
    playing and need no live handling; sheet changes during a session do.
-   Ambience.start()/startMusic() both tear down what's playing first, so
-   these just re-run the same calls startSession() makes. */
+   startMusic() tears down what's playing first, so this just re-runs the
+   same call startSession() makes. */
 
 function sessionAudioLive() {
   return (
     (uiState === 'running' || uiState === 'paused') && !timer.prepEndAt
   );
-}
-
-function applyAmbienceLive() {
-  if (!sessionAudioLive()) return;
-  if (!ambienceOn) {
-    Ambience.stop();
-    return;
-  }
-  Ambience.start(SCENES[sceneIndex].id);
-  if (uiState === 'paused') Ambience.duck();
 }
 
 function applyMusicLive() {
@@ -1159,15 +1107,6 @@ function applyMusicLive() {
   startMusic(track.src);
   // Starting a track while paused would play over a stopped session.
   if (uiState === 'paused') musicAudio?.pause();
-}
-
-for (const select of ambienceSelects) {
-  select.addEventListener('change', () => {
-    ambienceOn = select.value === 'on';
-    store.set('ambienceOn', ambienceOn);
-    renderSound();
-    applyAmbienceLive();
-  });
 }
 
 // No live handling needed: nothing is playing when this changes on the setup
@@ -1195,7 +1134,7 @@ for (const select of musicSelects) {
 /* ---------- Settings (app-wide, set once) ----------
    Deliberately separate from the setup screen's sound controls, split by
    lifetime: setup holds what you pick for THIS session (scene, length,
-   ambience, track), Settings holds preferences you set once and forget.
+   prep, bells, track), Settings holds preferences you set once and forget.
    Keeping sound out of here avoids two places that both claim to own it. */
 
 const COUNTDOWN_NOTES = {
@@ -1427,14 +1366,12 @@ document.addEventListener('visibilitychange', () => {
 /* ---------- Audio buses ---------- */
 
 /* There is no global mute. It was dropped in v39 along with the header
-   button: ambience and music already had their own off switches sitting in
-   the same section, so mute overlapped two controls and uniquely covered
-   only the chimes — which now have a switch of their own. On a phone the
-   hardware volume and silent switch are a faster everything-off than
-   anything reachable through a sheet, and they aren't duplicated here. */
+   button: music already had its own off switch sitting in the same
+   section, so mute mostly duplicated a control right above it. Volume
+   buttons remain the real everything-off and always work on media. */
 
 let audioCtx = null;
-let masterGain = null; // chimes + ambience share this bus
+let masterGain = null; // the chimes' bus
 
 function ensureAudio() {
   const Ctx = window.AudioContext || window.webkitAudioContext;
@@ -1498,7 +1435,7 @@ function noiseBurst(t, peak, decay, freq, q) {
 const VOICES = {
   bell: {
     label: 'Bell',
-    note: 'The original. Bright and clean, carries over ambience.',
+    note: 'The original. Bright and clean, carries over a track.',
     freq: { start: 392, interval: 440, end: 523.25 },
     decayScale: 1,
     strike(t, freq, peak, decay) {
@@ -1543,7 +1480,7 @@ const VOICES = {
 
   glass: {
     label: 'Glass',
-    note: 'High and delicate. Easy to miss under loud ambience.',
+    note: 'High and delicate. Easy to miss under a loud track.',
     freq: { start: 784, interval: 932.3, end: 1046.5 },
     decayScale: 0.8,
     strike(t, freq, peak, decay) {
@@ -1607,9 +1544,8 @@ function chimeEnd() {
 
 /* ---------- Soundtrack playback ----------
    Full compositions, not texture — played as whole tracks via a plain
-   <audio loop> element rather than AmbienceEngine's crossfade scheduler,
-   which is built for noise/texture and would clash against a track's
-   actual musical structure at the seam. */
+   <audio loop> element. A hard loop cut on a several-minute track is an
+   accepted tradeoff; most sessions never reach the loop point. */
 
 let musicAudio = null;
 
@@ -1627,153 +1563,6 @@ function stopMusic() {
   musicAudio.src = '';
   musicAudio = null;
 }
-
-/* ---------- Ambience (recorded loops + one synthesized drone) ----------
-   Real-world recordings aren't born loopable, so each layer schedules
-   overlapping copies of itself with a crossfaded gain envelope at the
-   seam — the chaotic texture (waves, fire, insects) masks the overlap.
-   A short lookahead (scheduled via setTimeout but timed precisely via
-   AudioContext currentTime) keeps the loop gap-free despite JS timer
-   jitter. See assets/audio/CREDITS.md for track sourcing. */
-
-const LOOKAHEAD = 1; // seconds before a loop boundary to schedule the next copy
-const bufferCache = new Map();
-let ambienceBus = null; // ducked independently of masterGain (pause vs. mute)
-let activeLayers = [];
-let activeHum = null;
-let ambienceToken = 0; // invalidates in-flight loads from a scene switched away from
-
-function loadBuffer(src) {
-  if (bufferCache.has(src)) return bufferCache.get(src);
-  const promise = fetch(src)
-    .then((res) => res.arrayBuffer())
-    .then((data) => audioCtx.decodeAudioData(data));
-  bufferCache.set(src, promise);
-  return promise;
-}
-
-function startLoopLayer(buffer, gainValue, crossfade) {
-  const layerGain = audioCtx.createGain();
-  layerGain.gain.value = gainValue;
-  layerGain.connect(ambienceBus);
-
-  let stopped = false;
-  const timers = [];
-  const dur = buffer.duration;
-  const fade = Math.min(crossfade, dur / 2);
-
-  function scheduleAt(startTime) {
-    if (stopped) return;
-    const source = audioCtx.createBufferSource();
-    source.buffer = buffer;
-    const envelope = audioCtx.createGain();
-    envelope.gain.setValueAtTime(0, startTime);
-    envelope.gain.linearRampToValueAtTime(1, startTime + fade);
-    envelope.gain.setValueAtTime(1, startTime + dur - fade);
-    envelope.gain.linearRampToValueAtTime(0, startTime + dur);
-    source.connect(envelope).connect(layerGain);
-    source.start(startTime);
-    source.stop(startTime + dur + 0.1);
-
-    const nextStart = startTime + dur - fade;
-    const wait = Math.max(0, (nextStart - audioCtx.currentTime - LOOKAHEAD) * 1000);
-    timers.push(setTimeout(() => scheduleAt(nextStart), wait));
-  }
-
-  scheduleAt(audioCtx.currentTime + 0.05);
-
-  return {
-    stop() {
-      stopped = true;
-      timers.forEach(clearTimeout);
-      layerGain.gain.setTargetAtTime(0, audioCtx.currentTime, 0.5);
-      setTimeout(() => layerGain.disconnect(), 1500);
-    },
-  };
-}
-
-// Low wordless drone for the temple — a few detuned sine partials rather
-// than one pure tone, so it reads as a sustained hum, not a lab-tone beep.
-function startHum() {
-  const bus = audioCtx.createGain();
-  bus.gain.setValueAtTime(0, audioCtx.currentTime);
-  bus.gain.linearRampToValueAtTime(0.1, audioCtx.currentTime + 3);
-  bus.connect(ambienceBus);
-
-  const partials = [
-    { ratio: 1, detune: 0, level: 0.3 },
-    { ratio: 1, detune: 5, level: 0.08 },
-    { ratio: 1, detune: -5, level: 0.08 },
-    { ratio: 2, detune: 0, level: 0.06 },
-  ];
-  const oscillators = partials.map(({ ratio, detune, level }) => {
-    const osc = audioCtx.createOscillator();
-    osc.type = 'sine';
-    osc.frequency.value = 110 * ratio; // low A2-ish register
-    osc.detune.value = detune;
-    const gain = audioCtx.createGain();
-    gain.gain.value = level;
-    osc.connect(gain).connect(bus);
-    osc.start();
-    return osc;
-  });
-
-  return {
-    stop() {
-      bus.gain.setTargetAtTime(0, audioCtx.currentTime, 0.8);
-      setTimeout(() => {
-        oscillators.forEach((osc) => osc.stop());
-        bus.disconnect();
-      }, 2000);
-    },
-  };
-}
-
-const Ambience = {
-  start(sceneId) {
-    ensureAudio();
-    if (!audioCtx) return; // WebAudio unsupported — session still runs silently
-    this.stop();
-    const config = AMBIENCE[sceneId];
-    if (!config) return;
-
-    const token = ++ambienceToken;
-    ambienceBus = audioCtx.createGain();
-    ambienceBus.gain.value = 1;
-    ambienceBus.connect(masterGain);
-
-    for (const layer of config.layers) {
-      loadBuffer(layer.src).then((buffer) => {
-        if (token !== ambienceToken) return; // scene changed before this loaded
-        activeLayers.push(startLoopLayer(buffer, layer.gain, layer.crossfade));
-      });
-    }
-    if (config.hum) activeHum = startHum();
-  },
-
-  stop() {
-    ambienceToken++;
-    activeLayers.forEach((layer) => layer.stop());
-    activeLayers = [];
-    if (activeHum) {
-      activeHum.stop();
-      activeHum = null;
-    }
-    if (ambienceBus) {
-      const bus = ambienceBus;
-      setTimeout(() => bus.disconnect(), 1500);
-      ambienceBus = null;
-    }
-  },
-
-  duck() {
-    ambienceBus?.gain.setTargetAtTime(0, audioCtx.currentTime, 0.3);
-  },
-
-  unduck() {
-    ambienceBus?.gain.setTargetAtTime(1, audioCtx.currentTime, 0.3);
-  },
-};
 
 /* ---------- Boot ---------- */
 

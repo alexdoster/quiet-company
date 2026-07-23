@@ -1,5 +1,15 @@
 # Audio credits
 
+## Ambient beds — NOT CURRENTLY USED (as of v40, 2026-07-22)
+
+The separate ambience layer was removed from the app: only 3 of 12 scenes
+ever got a bed, so the control was invisible most of the time, and Alex's
+call is that any ambient texture added back later becomes an entry in the
+Music section rather than its own mechanism. These four files are kept
+because they are exactly that candidate material, but nothing references
+them — no code, no service-worker precache. Delete them if the plan
+changes.
+
 All tracks from [BigSoundBank](https://bigsoundbank.com) (Joseph Sardin),
 licensed [CC0](https://creativecommons.org/publicdomain/zero/1.0/) —
 public domain, no attribution required. Credited here anyway as good
@@ -13,9 +23,12 @@ practice and so the source is traceable if a track ever gets swapped.
 | `hammock-campfire.mp3` | https://bigsoundbank.com/big-branching-fire-3-s0989.html |
 
 None are natural seamless loops (real-world recordings, not designed for
-looping) — the app crossfades overlapping copies at playback time
-(`AmbienceEngine` in `app.js`) rather than needing the files themselves
-edited into loop points.
+looping). The app used to solve that at playback time by crossfading
+overlapping copies of each clip (`AmbienceEngine`); that code went with
+the feature. **If any of these come back as Music entries they will play
+through a plain `<audio loop>` and audibly cut at the seam** — the
+crossfade technique is written up in `Quiet Company/CLAUDE.md` if it ever
+needs rebuilding.
 
 ## Yoga soundtrack (added 2026-07-15)
 
