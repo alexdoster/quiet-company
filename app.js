@@ -5,7 +5,7 @@
 // Bump alongside CACHE in sw.js on every deploy — this is the only
 // user-visible confirmation that a phone has picked up the latest build
 // (shown small, bottom-right, home screen only).
-const APP_VERSION = 43;
+const APP_VERSION = 44;
 
 // Scene labels are provisional placeholders — Alex finalizes the names.
 const SCENES = [
@@ -1233,10 +1233,15 @@ chimeSelect.addEventListener('change', () => {
   // Preview on pick — choosing a sound you cannot hear is not a choice.
   // This is also why the voice picker carries no caption: hearing it beats
   // reading about it, which is what let the other four notes go in v41.
-  // Render the new voice if it's the first time, then play its end clip; the
-  // change is a user gesture, so the play lands inside the activation window.
+  // Render the new voice if it's the first time, point the elements at it, then
+  // play its end clip. The change is a user gesture, so the play lands inside
+  // the activation window, and it doubles as unlocking the end element.
   ensureVoiceRendered(chimeVoice).then((urls) => {
-    if (urls) new Audio(urls.end).play().catch(() => {});
+    applyVoice(urls);
+    if (urls) {
+      try { chimeEls.end.currentTime = 0; } catch { /* not seekable yet */ }
+      chimeEls.end.play().catch(() => {});
+    }
   });
 });
 
@@ -1553,8 +1558,34 @@ function bufToWavUrl(buffer) {
   return URL.createObjectURL(new Blob([ab], { type: 'audio/wav' }));
 }
 
+/* One persistent <audio> per role, reused every session. This is the fix for
+   the end chime never reaching the speaker (v44): iOS blesses a media element
+   for later scripted playback only if that SAME element was played during a
+   user gesture, and the grace period is a few seconds. v43 made a fresh
+   `new Audio()` per chime, so the start chime — created right after the Begin
+   tap — played, while the end chime, a brand-new element minutes later, was
+   blocked, ringer or not. The music never hit this because it's one element
+   played inside the Begin tap and kept alive. So: three fixed elements,
+   unlocked once on the first flow tap, replayed at chime time. */
+const chimeEls = {
+  start: new Audio(),
+  interval: new Audio(),
+  end: new Audio(),
+};
+for (const el of Object.values(chimeEls)) el.preload = 'auto';
+
 // voice id -> { start, interval, end } blob URLs, rendered on demand and kept.
 const chimeUrls = {};
+
+// Point the three elements at a voice's clips. Swapping src on an already
+// unlocked element keeps its blessing (the standard iOS audio-sprite pattern),
+// so a voice change in Settings doesn't cost the unlock.
+function applyVoice(urls) {
+  if (!urls) return;
+  chimeEls.start.src = urls.start;
+  chimeEls.interval.src = urls.interval;
+  chimeEls.end.src = urls.end;
+}
 
 async function ensureVoiceRendered(voice) {
   if (chimeUrls[voice]) return chimeUrls[voice];
@@ -1571,45 +1602,43 @@ async function ensureVoiceRendered(voice) {
   }
 }
 
-/* Play a role through a fresh media element — the same pattern the music uses,
-   which is exactly what carries it past the iOS mute switch. Unconditional as
-   of v41: start and end are the timer's signal. chimeInterval only fires when
+/* Replay the pre-blessed element for a role. currentTime = 0 so an interval
+   bell landing while a previous tail still rings restarts cleanly. Unconditional
+   as of v41: start and end are the timer's signal; chimeInterval only fires when
    the user has set an interval, so it needs no gate of its own. */
 function playChime(role) {
-  const urls = chimeUrls[chimeVoice];
-  if (!urls) { ensureVoiceRendered(chimeVoice); return; } // warm it for next time
-  new Audio(urls[role]).play().catch(() => {});
+  const el = chimeEls[role];
+  if (!el.src) { ensureVoiceRendered(chimeVoice).then(applyVoice); return; }
+  try { el.currentTime = 0; } catch { /* not seekable yet — play from 0 anyway */ }
+  el.play().catch(() => {});
 }
 
 function chimeStart() { playChime('start'); }
 function chimeInterval() { playChime('interval'); }
 function chimeEnd() { playChime('end'); }
 
-/* iOS only lets the page play audio programmatically after one playback has
-   started from a user gesture. No-prep sessions get that for free — the start
-   chime or the music plays inside the Begin tap. But a session with a prep
-   pause plays nothing during the tap, so its first sound would be the
-   post-prep start chime, which iOS would block. Priming a silent clip on the
-   flow taps covers that case. */
-let silentUrl = null;
+/* Unlock all three chime elements on the first flow tap, with a muted play so
+   there's no sound — the standard iOS HTML5-audio unlock. Once blessed this
+   way, each can be replayed later in the session without a gesture, which is
+   what the end chime needs. Idempotent; retries on the next tap if the clips
+   haven't finished rendering yet. */
 let audioUnlocked = false;
-
 function unlockAudio() {
-  if (audioUnlocked || !silentUrl) return;
-  new Audio(silentUrl).play().then(() => { audioUnlocked = true; }).catch(() => {});
+  if (audioUnlocked) return;
+  const els = Object.values(chimeEls);
+  if (els.some((el) => !el.src)) return; // not rendered yet — a later tap retries
+  audioUnlocked = true;
+  for (const el of els) {
+    el.muted = true;
+    el.play()
+      .then(() => { el.pause(); el.currentTime = 0; el.muted = false; })
+      .catch(() => { el.muted = false; });
+  }
 }
 
-// Both offline, no gesture needed: warm the current voice and build the silent
-// primer at boot, so a clip is ready before the first Begin.
-ensureVoiceRendered(chimeVoice);
-(function makeSilentPrimer() {
-  const OfflineCtx = window.OfflineAudioContext || window.webkitOfflineAudioContext;
-  if (!OfflineCtx) return;
-  new OfflineCtx(1, 800, 8000)
-    .startRendering()
-    .then((buf) => { silentUrl = bufToWavUrl(buf); })
-    .catch(() => {});
-})();
+// Warm the current voice at boot (offline, no gesture) and point the elements
+// at it, so they have a source before the first tap.
+ensureVoiceRendered(chimeVoice).then(applyVoice);
 
 /* ---------- Soundtrack playback ----------
    Full compositions, not texture — played as whole tracks via a plain
