@@ -5,7 +5,7 @@
 // Bump alongside CACHE in sw.js on every deploy — this is the only
 // user-visible confirmation that a phone has picked up the latest build
 // (shown small, bottom-right, home screen only).
-const APP_VERSION = 31;
+const APP_VERSION = 34;
 
 // Scene labels are provisional placeholders — Alex finalizes the names.
 const SCENES = [
@@ -38,6 +38,11 @@ const SCENES = [
   // landscape, where cover crops top and bottom. Each value is inert on
   // the axis the other one fixes, so one pair covers both orientations.
   { id: 'android', label: 'Android', src: 'assets/video/android-room-breathing-v1.mp4', card: 'assets/img/card-android.jpg', objectPosition: '21% top' },
+  // The one scene with no film in it: white type on black, rendered live
+  // from TEXT_SCRIPT below. No Midjourney still, no Kling clip, no card
+  // thumbnail, nothing for the service worker to cache — it costs bytes
+  // only in this file. See the Words section further down.
+  { id: 'words', label: 'Words', type: 'text' },
   // On loan from Portals-App for desk-companion testing + live Portals demo — pinned to bottom
   { id: 'hammock', label: 'Hammock', src: 'assets/video/hammock-sleep-v1.mp4', card: 'assets/img/card-hammock.jpg' },
   { id: 'horizon', label: 'Horizon', src: 'assets/video/horizon-gaze-v1.mp4', card: 'assets/img/card-horizon.jpg' },
@@ -141,6 +146,59 @@ const MUSIC = [
 ];
 const MUSIC_VOLUME = 0.55;
 
+/* ---------- Words scene script ----------
+   Twelve triads: a line on the inhale, a line on the exhale, then one held
+   line to rest on. Trimmed from Alex's 25-triad draft, keeping its arc
+   (arrive, anchor, soften, watch the mind, kindness inward, kindness
+   outward, stop striving, return) and cutting the word count per line —
+   a ten-word sentence at this type size is something you read instead of
+   something you breathe under.
+
+   `core` marks the six that survive a session too short for all twelve;
+   they form a complete miniature of the same arc on their own. */
+
+const TEXT_SCRIPT = [
+  { inhale: 'Gathering awareness into the body.', exhale: 'Releasing the weight of the day.', focus: 'You have arrived.', core: true },
+  { inhale: 'Cool air at the tip of the nose.', exhale: 'Warm air leaving the lips.', focus: 'The breath is the anchor.', core: true },
+  { inhale: 'Softness into the chest.', exhale: 'Shoulders away from the ears.', focus: 'Relax your effort.' },
+  { inhale: 'The tide rises.', exhale: 'The tide recedes.', focus: 'You are the floor beneath.' },
+  { inhale: 'Fill completely.', exhale: 'Empty completely.', focus: 'Peace lives in the pause.' },
+  { inhale: 'Notice where the mind went.', exhale: 'Guide it back to the breath.', focus: 'Returning is the practice.', core: true },
+  { inhale: 'A moment begins.', exhale: 'A moment fades.', focus: 'Everything passes.' },
+  { inhale: 'I am aware of thinking.', exhale: 'I am not my thoughts.', focus: 'Let the clouds pass.' },
+  { inhale: 'Breathing kindness into your own heart.', exhale: 'Releasing judgment.', focus: 'May I be safe and at ease.', core: true },
+  { inhale: 'Breathing in awareness of others.', exhale: 'Breathing out warmth to all.', focus: 'May all find peace.' },
+  { inhale: 'No seeking.', exhale: 'No striving.', focus: 'You are already complete.', core: true },
+  { inhale: 'Filling with clarity.', exhale: 'Carrying peace back with you.', focus: 'Open your eyes slowly.', core: true },
+];
+
+// Shown on the browse/preview screen and during the settle window, so the
+// scene isn't a blank black rectangle before the script starts.
+const TEXT_PREVIEW_LINE = 'Breathe with the words.';
+
+// Breath pacing. Fixed, not scaled to session length: every other scene
+// breathes at whatever rate Kling gave it, but this one sets the pace, and
+// a pace you can stretch to fit a 60-minute session isn't a breath.
+const INHALE_MS = 5000;
+const EXHALE_MS = 7000;
+const FOCUS_MS = 8000;
+const TRIAD_MS = INHALE_MS + EXHALE_MS + FOCUS_MS;
+
+// Silence between triads is the one elastic part, so a longer session gets
+// more quiet rather than more text. The minimum keeps a focus line from
+// being stepped on by the next inhale. The maximum is deliberately generous
+// — a several-minute silence inside a long sit is normal, and a tighter cap
+// made an hour-long session finish the script at twelve minutes and then
+// sit black, having said "open your eyes slowly" three quarters of an hour
+// early.
+const TEXT_GAP_MIN_MS = 5000;
+const TEXT_GAP_MAX_MS = 300000;
+const TEXT_GAP_OPEN_MS = 10000; // open-ended sessions have no length to divide
+// Leave the last stretch of a fixed session wordless, so the closing line
+// lands before the end chime rather than on top of it.
+const TEXT_TAIL = 0.9;
+const TEXT_FADE_MS = 600; // must match the .text-line CSS transition
+
 const CUSTOM_DEFAULT = 20;
 const CUSTOM_MIN = 1;
 const CUSTOM_MAX = 120;
@@ -192,6 +250,10 @@ const countdownSelect = $('#countdown-select');
 const countdownNoteEl = $('#countdown-note');
 const clockSelect = $('#clock-select');
 const clockNoteEl = $('#clock-note');
+const motionSelect = $('#motion-select');
+const motionNoteEl = $('#motion-note');
+const textStyleSelect = $('#textstyle-select');
+const textStyleNoteEl = $('#textstyle-note');
 const bellsSelect = $('#bells-select');
 const prepSelect = $('#prep-select');
 const chimeSelect = $('#chime-select');
@@ -237,6 +299,9 @@ function setUIState(state) {
     cancelGag();
     cancelVariant();
   }
+  // Unlike the gag and variant overlays, the Words script survives a pause —
+  // it's the scene itself, not something playing over it.
+  if (state !== 'running' && state !== 'paused') stopTextScript();
   renderGagButton();
   scheduleRest();
 }
@@ -250,19 +315,23 @@ let sceneIndex = Math.max(
 );
 
 for (const scene of SCENES) {
-  // Elements are created up front; video src is attached lazily so a
-  // growing roster doesn't front-load every file on open.
-  const video = document.createElement('video');
-  video.muted = true;
-  video.loop = true;
-  video.playsInline = true;
-  video.setAttribute('playsinline', '');
-  video.preload = 'auto';
-  video.className = 'scene-video';
-  if (scene.objectPosition) video.style.objectPosition = scene.objectPosition;
-  video.addEventListener('error', () => video.classList.add('missing'));
-  stage.appendChild(video);
-  videos.set(scene.id, video);
+  // The Words scene has no film, so it gets no entry here at all — its
+  // layer lives outside #stage and is toggled by setScene() directly.
+  if (scene.type !== 'text') {
+    // Elements are created up front; video src is attached lazily so a
+    // growing roster doesn't front-load every file on open.
+    const video = document.createElement('video');
+    video.muted = true;
+    video.loop = true;
+    video.playsInline = true;
+    video.setAttribute('playsinline', '');
+    video.preload = 'auto';
+    video.className = 'scene-video';
+    if (scene.objectPosition) video.style.objectPosition = scene.objectPosition;
+    video.addEventListener('error', () => video.classList.add('missing'));
+    stage.appendChild(video);
+    videos.set(scene.id, video);
+  }
 
   const dot = document.createElement('button');
   dot.className = 'dot';
@@ -277,14 +346,24 @@ for (const scene of SCENES) {
   // a few hundred KB of images total — video only loads for a tapped card.
   const card = document.createElement('button');
   card.className = 'card';
-  const img = document.createElement('img');
-  img.src = scene.card;
-  img.alt = '';
-  img.loading = 'lazy';
+  if (scene.type === 'text') {
+    // No thumbnail to generate: the card is the scene, at card size.
+    card.classList.add('card-words');
+    const sample = document.createElement('span');
+    sample.className = 'card-sample';
+    sample.textContent = TEXT_SCRIPT[0].focus;
+    card.appendChild(sample);
+  } else {
+    const img = document.createElement('img');
+    img.src = scene.card;
+    img.alt = '';
+    img.loading = 'lazy';
+    card.appendChild(img);
+  }
   const name = document.createElement('span');
   name.className = 'card-name';
   name.textContent = scene.label;
-  card.append(img, name);
+  card.appendChild(name);
   card.addEventListener('click', () => {
     setScene(SCENES.indexOf(scene));
     setUIState('browse');
@@ -299,6 +378,7 @@ function pauseAllVideos() {
 function ensureVideoLoaded(index) {
   const scene = SCENES[(index + SCENES.length) % SCENES.length];
   const video = videos.get(scene.id);
+  if (!video) return; // Words scene — nothing to load
   if (!video.dataset.loaded) {
     video.src = scene.src;
     video.dataset.loaded = '1';
@@ -312,6 +392,14 @@ function setScene(index, { animateName = false } = {}) {
   cancelGag();
   cancelVariant();
   renderGagButton();
+
+  // Push the Ken Burns zoom INTO the scene's crop anchor rather than away
+  // from it. A default centre-origin scale crops evenly on all four sides,
+  // which is exactly the edge an objectPosition scene is protecting — the
+  // android's head would clip again, the same v27 bug from a new direction.
+  // objectPosition and transform-origin take the same syntax, so the scene's
+  // own value passes straight through.
+  stage.style.transformOrigin = scene.objectPosition || 'center center';
 
   // Active scene plus both neighbors, so a swipe lands on a warm video
   ensureVideoLoaded(sceneIndex);
@@ -327,6 +415,7 @@ function setScene(index, { animateName = false } = {}) {
       video.pause();
     }
   }
+  setTextSceneActive(scene.type === 'text');
 
   Array.from(dotsEl.children).forEach((dot, i) => {
     dot.classList.toggle('selected', i === sceneIndex);
@@ -349,7 +438,7 @@ function changeScene(step) {
 }
 
 function playActiveVideo() {
-  videos.get(SCENES[sceneIndex].id)?.play().catch(() => {});
+  videos.get(SCENES[sceneIndex].id)?.play()?.catch(() => {});
 }
 
 /* ---------- Gag playback (Portals-App prototype) ----------
@@ -492,6 +581,110 @@ function cancelVariant() {
   variantActive = false;
 }
 
+/* ---------- Words scene ----------
+   The one scene rendered rather than filmed. Because there's no clip to
+   loop, none of the video pipeline's problems apply: no seam to hide, no
+   repetition to disguise, and the pace is ours to set rather than whatever
+   rate the animation came back at.
+
+   The script is compiled to a cue list at session start and then driven off
+   timer.elapsedMs by the main tick, the same way minute markers and interval
+   bells are. That inherits their behaviour for free: it freezes while paused,
+   survives the phone being locked or backgrounded, and catches up to the
+   right line rather than replaying the ones it slept through. */
+
+const textLayer = $('#text-scene');
+const textLineEl = $('#text-line');
+
+let textSchedule = null; // cue list for the running session, or null
+let textCueIndex = -1;
+let textShown = null;
+let textSwapTimer = null;
+
+function setTextSceneActive(on) {
+  textLayer.classList.toggle('active', on);
+  if (!on) stopTextScript();
+}
+
+// Fade the current line out, swap the words while nothing is visible, fade
+// the new one in. An empty string leaves the screen dark, which is what the
+// gaps between triads and the tail of a long session are made of.
+function showTextLine(text) {
+  if (text === textShown) return;
+  textShown = text;
+  clearTimeout(textSwapTimer);
+  textLineEl.classList.remove('in');
+  textSwapTimer = setTimeout(() => {
+    textLineEl.textContent = text;
+    if (text) textLineEl.classList.add('in');
+  }, TEXT_FADE_MS);
+}
+
+// Fit the script to the session rather than the other way round. Breath
+// durations are fixed, so the two things that can give are how many triads
+// play and how much silence sits between them.
+function buildTextSchedule(durationMs) {
+  const open = !durationMs;
+  const budget = durationMs * TEXT_TAIL;
+  let script = TEXT_SCRIPT;
+  let gap = TEXT_GAP_OPEN_MS;
+
+  if (!open) {
+    const fits = (list) => list.length * (TRIAD_MS + TEXT_GAP_MIN_MS) <= budget;
+    // Short session: fall back to the core spine, which is the same arc in
+    // miniature rather than the first half of the full one.
+    if (!fits(script)) script = TEXT_SCRIPT.filter((t) => t.core);
+    // Shorter still: drop from the end, but never the closing triad — a
+    // session that stops before "Open your eyes slowly" has no ending.
+    while (script.length > 2 && !fits(script)) {
+      script = [...script.slice(0, -2), script[script.length - 1]];
+    }
+    gap = Math.min(
+      TEXT_GAP_MAX_MS,
+      Math.max(TEXT_GAP_MIN_MS, (budget - script.length * TRIAD_MS) / script.length)
+    );
+  }
+
+  const cues = [];
+  let at = 0;
+  for (const triad of script) {
+    cues.push({ at, text: triad.inhale });
+    at += INHALE_MS;
+    cues.push({ at, text: triad.exhale });
+    at += EXHALE_MS;
+    cues.push({ at, text: triad.focus });
+    at += FOCUS_MS;
+    cues.push({ at, text: '' }); // rest between triads, and after the last one
+    at += gap;
+  }
+  return cues;
+}
+
+function startTextScript() {
+  textSchedule = buildTextSchedule(timer.durationMs);
+  textCueIndex = -1;
+}
+
+function stopTextScript() {
+  textSchedule = null;
+  textCueIndex = -1;
+  showTextLine(textLayer.classList.contains('active') ? TEXT_PREVIEW_LINE : '');
+}
+
+// Called from the session tick. Walks forward to the cue that owns the
+// current elapsed time and renders only that one, so a session resumed
+// after a long lock doesn't flash through every line it missed.
+function advanceTextScript() {
+  if (!textSchedule) return;
+  let i = textCueIndex;
+  while (i + 1 < textSchedule.length && textSchedule[i + 1].at <= timer.elapsedMs) {
+    i++;
+  }
+  if (i === textCueIndex) return;
+  textCueIndex = i;
+  showTextLine(textSchedule[i].text);
+}
+
 /* Swipe to browse (browse state only) */
 
 let swipeStart = null;
@@ -573,6 +766,7 @@ setInterval(() => {
   }
   maybeFireMinuteMarker();
   maybeFireIntervalBell();
+  advanceTextScript();
 }, 250);
 
 // Fire a variant pop-in each time session-elapsed time crosses a minute
@@ -665,6 +859,7 @@ function beginTimedPortion() {
   }
   renderCountdown();
   chimeStart();
+  if (SCENES[sceneIndex].type === 'text') startTextScript();
   if (ambienceOn) Ambience.start(SCENES[sceneIndex].id);
   const track = currentMusicTrack();
   if (track) startMusic(track.src);
@@ -919,11 +1114,32 @@ const CLOCK_NOTES = {
   topright: 'Docked top-right; the sound button moves left during a session.',
 };
 
+const MOTION_NOTES = {
+  zoom: 'The scene drifts slowly in and back out.',
+  still: 'The scene holds a fixed frame.',
+};
+
+// How the Words scene sets its type. Three real looks rather than a slider,
+// so the choice is quick and every option is one someone would actually pick.
+const TEXTSTYLE_NOTES = {
+  sans: 'Plain and quiet. Closest to a bumper card.',
+  caps: 'Small, wide, all caps. The most graphic of the three.',
+  serif: 'Matches the rest of the app.',
+};
+
 let countdownMode = store.get('countdownMode', 'always');
 // Every scene's subject is centre-framed by design, so the corners are
 // normally background — but not all of them are (Android sits left of
 // centre), hence a manual override for the clock's corner.
 let clockPosition = store.get('clockPosition', 'auto');
+// The OS accessibility pref picks the default only. Once the user has
+// chosen in Settings, that choice is the source of truth — a single code
+// path, rather than a CSS media query racing the toggle.
+let sceneMotion = store.get(
+  'sceneMotion',
+  matchMedia('(prefers-reduced-motion: reduce)').matches ? 'still' : 'zoom'
+);
+let textStyle = store.get('textStyle', 'sans');
 let intervalBellMs = store.get('intervalBellMinutes', 0) * 60000;
 let prepSeconds = store.get('prepSeconds', 0);
 let chimeVoice = store.get('chimeVoice', 'bell');
@@ -937,6 +1153,12 @@ function applySettings() {
   document.body.dataset.clock = clockPosition;
   clockNoteEl.textContent = CLOCK_NOTES[clockPosition];
   clockSelect.value = clockPosition;
+  document.body.dataset.motion = sceneMotion;
+  motionNoteEl.textContent = MOTION_NOTES[sceneMotion];
+  motionSelect.value = sceneMotion;
+  document.body.dataset.textstyle = textStyle;
+  textStyleNoteEl.textContent = TEXTSTYLE_NOTES[textStyle];
+  textStyleSelect.value = textStyle;
   bellsSelect.value = String(intervalBellMs / 60000);
   prepSelect.value = String(prepSeconds);
   chimeSelect.value = chimeVoice;
@@ -952,6 +1174,18 @@ countdownSelect.addEventListener('change', () => {
 clockSelect.addEventListener('change', () => {
   clockPosition = clockSelect.value;
   store.set('clockPosition', clockPosition);
+  applySettings();
+});
+
+motionSelect.addEventListener('change', () => {
+  sceneMotion = motionSelect.value;
+  store.set('sceneMotion', sceneMotion);
+  applySettings();
+});
+
+textStyleSelect.addEventListener('change', () => {
+  textStyle = textStyleSelect.value;
+  store.set('textStyle', textStyle);
   applySettings();
 });
 

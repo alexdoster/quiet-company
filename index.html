@@ -18,6 +18,13 @@
 <body>
 
   <div id="stage" aria-hidden="true"></div>
+
+  <!-- The Words scene. A sibling of #stage rather than a child, so the Ken
+       Burns zoom (which transforms #stage) can't scale the type. -->
+  <div id="text-scene" class="scene-text" aria-hidden="true">
+    <p id="text-line" class="text-line"></p>
+  </div>
+
   <div class="scrim scrim-top" aria-hidden="true"></div>
   <div class="scrim scrim-bottom" aria-hidden="true"></div>
 
@@ -60,12 +67,25 @@
           <button class="pill duration" data-minutes="10">10 min</button>
           <button class="pill duration" data-minutes="15">15 min</button>
           <button class="pill duration" data-minutes="custom">Custom</button>
-          <button class="pill duration" data-minutes="open">Open</button>
+          <button class="pill duration duration-open" data-minutes="open"
+                  aria-label="Open ended, no set length">&#8734;</button>
         </div>
         <div id="custom-row" class="custom-row">
           <button id="custom-minus" class="step" aria-label="One minute less">&minus;</button>
           <span id="custom-value" class="custom-value">20 min</span>
           <button id="custom-plus" class="step" aria-label="One minute more">+</button>
+        </div>
+        <div class="option-row">
+          <label class="select-field">
+            <span class="select-label">Settle</span>
+            <select id="prep-select">
+              <option value="0">No pause</option>
+              <option value="10">10 seconds</option>
+              <option value="20">20 seconds</option>
+              <option value="30">30 seconds</option>
+              <option value="60">1 minute</option>
+            </select>
+          </label>
         </div>
         <div id="sound" class="sound-section">
           <p class="prompt-sub">Sound</p>
@@ -120,6 +140,7 @@
            aria-label="Settings" hidden>
     <h2 class="sheet-title">Settings</h2>
 
+    <div class="sheet-scroll">
     <label class="sheet-row">
       <span class="sheet-label">Countdown</span>
       <span class="select-shell">
@@ -144,6 +165,29 @@
       </span>
     </label>
     <p class="sheet-note" id="clock-note"></p>
+
+    <label class="sheet-row">
+      <span class="sheet-label">Scene motion</span>
+      <span class="select-shell">
+        <select id="motion-select">
+          <option value="zoom">Slow zoom</option>
+          <option value="still">Still</option>
+        </select>
+      </span>
+    </label>
+    <p class="sheet-note" id="motion-note"></p>
+
+    <label class="sheet-row">
+      <span class="sheet-label">Words type</span>
+      <span class="select-shell">
+        <select id="textstyle-select">
+          <option value="sans">Sans</option>
+          <option value="caps">Sans caps</option>
+          <option value="serif">Serif</option>
+        </select>
+      </span>
+    </label>
+    <p class="sheet-note" id="textstyle-note"></p>
 
     <label class="sheet-row">
       <span class="sheet-label">Interval bells</span>
@@ -173,20 +217,7 @@
       </span>
     </label>
     <p class="sheet-note" id="chime-note"></p>
-
-    <label class="sheet-row">
-      <span class="sheet-label">Settle time</span>
-      <span class="select-shell">
-        <select id="prep-select">
-          <option value="0">None</option>
-          <option value="10">10 seconds</option>
-          <option value="20">20 seconds</option>
-          <option value="30">30 seconds</option>
-          <option value="60">1 minute</option>
-        </select>
-      </span>
-    </label>
-    <p class="sheet-note">A pause before the clock starts, to get seated.</p>
+    </div>
 
     <button class="pill cta sheet-done">Done</button>
   </section>
@@ -195,6 +226,7 @@
            aria-label="Sound" hidden>
     <h2 class="sheet-title">Sound</h2>
 
+    <div class="sheet-scroll">
     <label class="sheet-row hidden" id="s-ambience-field">
       <span class="sheet-label">Ambience</span>
       <span class="select-shell">
@@ -211,6 +243,7 @@
         <select id="s-music-select"></select>
       </span>
     </label>
+    </div>
 
     <button class="pill cta sheet-done">Done</button>
   </section>

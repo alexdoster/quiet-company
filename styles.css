@@ -42,6 +42,28 @@ body {
   background: radial-gradient(120% 120% at 50% 30%, #1a2430 0%, #0d1116 70%);
 }
 
+/* Ken Burns drift. On #stage rather than .scene-video so every layer —
+   base loop, gag, variant — shares one transform: a variant crossfading
+   in at scale 1 over a base at 1.08 would read as a jump cut.
+   `alternate` rather than a one-way loop because a one-way zoom has to
+   reset, and the reset snaps. Never scales below 1: the videos are
+   object-fit: cover, so under 1 would expose the frame edges.
+   Deliberately not synced to the breath pace — a zoom pulsing on the
+   inhale is something the eye locks onto. */
+
+body[data-motion="zoom"] #stage {
+  animation: kenburns 90s ease-in-out infinite alternate;
+}
+
+@keyframes kenburns {
+  from {
+    transform: scale(1);
+  }
+  to {
+    transform: scale(1.08);
+  }
+}
+
 .scene-video {
   position: absolute;
   inset: 0;
@@ -64,6 +86,93 @@ body {
 
 .scene-video.missing {
   display: none;
+}
+
+/* ---------- Words scene ----------
+   True black, not the app's --bg: this scene is the black, where every
+   other one only shows through around the edges of a film. Sits above
+   #stage and below the scrims and UI, and outside #stage's Ken Burns
+   transform so the type never drifts or scales.
+
+   The line is held above centre — the session panel owns the bottom of
+   the screen (countdown, Pause/End), and a vertically centred line lands
+   on the clock. */
+
+.scene-text {
+  position: fixed;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 12vh calc(env(safe-area-inset-right) + 9vw)
+    30vh calc(env(safe-area-inset-left) + 9vw);
+  background: #000;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity 1.2s var(--ease), visibility 0s linear 1.2s;
+}
+
+.scene-text.active {
+  opacity: 1;
+  visibility: visible;
+  transition: opacity 1.2s var(--ease);
+}
+
+.text-line {
+  margin: 0;
+  max-width: 18em;
+  text-align: center;
+  text-wrap: balance;
+  color: var(--ink);
+  opacity: 0;
+  /* Must match TEXT_FADE_MS in app.js — the swap happens once this
+     completes, so a slower fade here would rewrite visible text. */
+  transition: opacity 0.6s var(--ease);
+}
+
+.text-line.in {
+  opacity: 1;
+}
+
+/* Three type treatments, picked in Settings. */
+
+body[data-textstyle="sans"] .text-line {
+  font-size: clamp(26px, 5.4vw, 46px);
+  font-weight: 250;
+  line-height: 1.35;
+  letter-spacing: 0.01em;
+}
+
+body[data-textstyle="caps"] .text-line {
+  font-size: clamp(15px, 2.6vw, 24px);
+  font-weight: 400;
+  line-height: 1.85;
+  letter-spacing: 0.3em;
+  text-indent: 0.3em; /* re-centers letterspaced text */
+  text-transform: uppercase;
+  max-width: 15em;
+}
+
+body[data-textstyle="serif"] .text-line {
+  font-family: var(--serif);
+  font-size: clamp(26px, 5.2vw, 44px);
+  font-weight: 400;
+  line-height: 1.4;
+  letter-spacing: 0.01em;
+}
+
+/* Landscape phones: less vertical room, and the clock docks to a corner
+   rather than sitting under the line, so the bottom reserve can shrink. */
+@media (max-height: 520px) and (orientation: landscape) {
+  .scene-text {
+    padding-top: 14vh;
+    padding-bottom: 20vh;
+  }
+
+  body[data-textstyle="sans"] .text-line,
+  body[data-textstyle="serif"] .text-line {
+    font-size: clamp(22px, 3.4vw, 34px);
+  }
 }
 
 /* Legibility scrims over the video, never over the character's center */
@@ -196,6 +305,25 @@ body.at-home .scrim {
   height: 100%;
   object-fit: cover;
   display: block;
+}
+
+/* The Words card renders the scene instead of a thumbnail of it — there's
+   no still to shoot, and a black JPEG would be bytes spent on nothing. */
+.card-words {
+  background: #000;
+}
+
+.card-sample {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 0 18% 12%;
+  text-align: center;
+  font-size: clamp(14px, 1.9vw, 17px);
+  font-weight: 250;
+  letter-spacing: 0.01em;
+  color: var(--ink-dim);
 }
 
 /* Bottom scrim so the name reads over any art */
@@ -479,6 +607,19 @@ body.at-home .scrim {
   margin-bottom: 16px;
 }
 
+/* Open-ended sessions, shown as ∞. A text glyph rather than an SVG — the
+   one icon form this app can trust, after SVG failed to render here twice
+   (v9/v10) for reasons never pinned down. The meaning rides on aria-label,
+   since a bare glyph announces as nothing. min-width keeps it from reading
+   as a stub beside "Custom"; the fixed line-height holds the pill to the
+   same height as its text siblings despite the larger glyph. */
+
+.duration-open {
+  min-width: 74px;
+  font-size: 21px;
+  line-height: 18px;
+}
+
 .custom-row {
   display: flex;
   justify-content: center;
@@ -537,6 +678,18 @@ body.at-home .scrim {
   display: flex;
   justify-content: center;
   gap: 12px;
+}
+
+/* Settle sits with Start rather than in Settings: it's a property of the
+   session you're about to begin, like its length, not a set-once
+   preference. Same centred pill row as the sound selects below. */
+
+.option-row {
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 18px;
 }
 
 .sound-section {
@@ -656,6 +809,17 @@ body.at-home .scrim {
   opacity: 0.28;
 }
 
+/* ...but never the settle count-in. Auto-hide rests after 4s, so every
+   settle length except 10s outlived it and dimmed the count-in to 0.28 of
+   an already-dim colour — right when it's the only thing telling you the
+   session hasn't started. It's a start cue, so it holds full opacity for
+   its whole window; the smaller dim type still distinguishes it from the
+   session clock. */
+
+.resting .countdown.prep {
+  opacity: 1;
+}
+
 /* Countdown visibility (Settings). "rest" keeps the clock available on a
    tap but takes it off the resting screen entirely; "never" removes it
    from every state, leaving the end chime as the only signal. The settle
@@ -760,8 +924,13 @@ body[data-clock="topright"] .state-paused .top {
   top: 50%;
   width: min(calc(100vw - 40px), 380px);
   max-height: min(calc(100vh - 40px), 560px);
-  overflow-y: auto;
-  -webkit-overflow-scrolling: touch;
+  /* Only the rows scroll (.sheet-scroll). Title and Done sit outside that
+     box, so Done can never scroll out of reach the way it did once the
+     sheet outgrew its max-height — a row-count problem that would come
+     back with the next setting if it were solved by removing rows. */
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
   padding: 24px 22px calc(20px + env(safe-area-inset-bottom));
   border: 1px solid var(--glass-border);
   border-radius: 22px;
@@ -774,6 +943,15 @@ body[data-clock="topright"] .state-paused .top {
   transition: opacity 0.3s var(--ease), transform 0.3s var(--ease);
 }
 
+/* Required because .sheet sets an explicit display above: a class rule beats
+   the UA stylesheet's [hidden] { display: none }, so without this a closed
+   sheet stays laid out at opacity 0 — invisible, centred, and eating every
+   click aimed at the panel underneath it. */
+
+.sheet[hidden] {
+  display: none;
+}
+
 .sheet-backdrop.open,
 .sheet.open {
   opacity: 1;
@@ -783,7 +961,19 @@ body[data-clock="topright"] .state-paused .top {
   transform: translate(-50%, -50%);
 }
 
+/* Negative margin + matching padding so the scrollbar rides the sheet's
+   own edge rather than floating inset from it. */
+
+.sheet-scroll {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  margin: 0 -22px;
+  padding: 0 22px;
+}
+
 .sheet-title {
+  flex: none;
   margin: 0 0 20px;
   font-family: var(--serif);
   font-size: 22px;
@@ -860,7 +1050,8 @@ body[data-clock="topright"] .state-paused .top {
 }
 
 .sheet-done {
-  margin-top: 6px;
+  flex: none;
+  margin-top: 16px;
   min-width: 0;
   width: 100%;
 }
@@ -965,6 +1156,7 @@ body[data-clock="topright"] .state-paused .top {
 
 @media (prefers-reduced-motion: reduce) {
   .scene-video,
+  .scene-text,
   .panel,
   .countdown,
   .session-controls,
