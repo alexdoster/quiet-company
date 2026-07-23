@@ -6,6 +6,13 @@
   --ink-faint: rgba(242, 239, 231, 0.38);
   --glass: rgba(14, 18, 24, 0.42);
   --glass-border: rgba(255, 255, 255, 0.14);
+  /* Opaque sheet fill, shared by Settings, the sound sheet and the setup
+     screen (v41). Slightly lifted off --bg so a sheet reads as sitting on
+     the scene rather than as a hole cut in it. */
+  --surface: #12171d;
+  --surface-border: rgba(255, 255, 255, 0.09);
+  --row: rgba(255, 255, 255, 0.05);
+  --row-rule: rgba(255, 255, 255, 0.07);
   --serif: ui-serif, "New York", "Iowan Old Style", Georgia, "Times New Roman",
     serif;
   --ease: cubic-bezier(0.33, 0, 0.2, 1);
@@ -584,20 +591,12 @@ body.at-home .scrim {
 
 /* ---------- Setup panel ---------- */
 
-.prompt {
-  margin: 0 0 18px;
-  font-size: 17px;
-  font-weight: 300;
-  color: var(--ink-dim);
-}
-
 .durations {
   display: flex;
   justify-content: center;
   align-items: center; /* pill and select-fields differ slightly in height */
   flex-wrap: wrap;
-  gap: 10px;
-  margin-bottom: 16px;
+  gap: 8px;
 }
 
 /* Label-less variant, for controls whose options already state their unit. */
@@ -629,43 +628,34 @@ body.at-home .scrim {
   line-height: 18px;
 }
 
-/* Wider than the other panels' 420px so the length row (hours, minutes and
+/* The setup screen is an opaque card, not a glass panel floating on the
+   video (v41) — same surface as the sheets, so the two read as one system.
+   Wider than the other panels' 420px so the length row (hours, minutes and
    the open-ended toggle) holds one line — wrapping the ∞ pill onto its own
    row costs ~44px of height, which a 390px-tall landscape phone can't
    spare. No effect in portrait, where the viewport is narrower than either
    figure. */
 #setup {
   max-width: 470px;
+  display: flex;
+  flex-direction: column;
+  padding: 20px 18px calc(18px + env(safe-area-inset-bottom));
+  border: 1px solid var(--surface-border);
+  border-radius: 22px;
+  background: var(--surface);
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.5);
+  /* Bounded like a sheet so a long group scrolls inside the card instead of
+     pushing Back/Start past the screen edge — the v14/v22/v37 failure. */
+  max-height: min(calc(100vh - 96px), 620px);
+  overflow: hidden;
 }
 
 .setup-actions {
+  flex: none;
   display: flex;
   justify-content: center;
   gap: 12px;
-}
-
-/* Prep time and interval bells sit with Start rather than in Settings:
-   both are properties of the session you're about to begin, like its
-   length, not set-once preferences. Same centred pill row as the sound
-   selects below. */
-
-.option-row {
-  display: flex;
-  justify-content: center;
-  flex-wrap: wrap;
-  gap: 10px;
-  margin-bottom: 18px;
-}
-
-.sound-section {
-  margin-bottom: 18px;
-}
-
-.sound-rows {
-  display: flex;
-  justify-content: center;
-  flex-wrap: wrap;
-  gap: 10px;
+  margin-top: 16px;
 }
 
 .select-field {
@@ -684,11 +674,6 @@ body.at-home .scrim {
 
 .select-field.hidden {
   display: none;
-}
-
-.select-label {
-  font-size: 13px;
-  color: var(--ink-dim);
 }
 
 .select-field::after {
@@ -716,17 +701,82 @@ body.at-home .scrim {
   outline: none;
 }
 
-.prompt-sub {
-  margin: 0 0 10px;
-  font-size: 12px;
+/* ---------- Grouped rows (setup + Settings, v41) ----------
+   iOS-style grouped list: a small tracked header naming each group, rows
+   in one rounded block with hairline rules between them. The headers are
+   what let every per-row caption go — the group says what the rows are
+   for, which a stack of equal-weight rows never did. */
+
+.group-head {
+  margin: 0 0 7px 4px;
+  font-size: 10px;
   font-weight: 600;
-  letter-spacing: 0.12em;
+  letter-spacing: 0.17em;
   text-transform: uppercase;
   color: var(--ink-faint);
+  text-align: left;
+}
+
+.group-head + .group {
+  margin-bottom: 14px;
+}
+
+.group {
+  border-radius: 14px;
+  overflow: hidden;
+  background: var(--row);
+  text-align: left;
+}
+
+.group-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 11px 13px;
+  cursor: pointer;
+}
+
+/* Hairline between rows, drawn inside the row so the group's rounded
+   corners clip it. A border would sit outside the overflow clip. */
+.group-row + .group-row {
+  box-shadow: inset 0 1px 0 var(--row-rule);
+}
+
+.group-row.hidden {
+  display: none;
+}
+
+.row-label {
+  font-size: 14px;
+  font-weight: 300;
+  color: var(--ink);
+  white-space: nowrap;
+}
+
+/* Length leads the screen: it's the one control touched every session, and
+   without it the setup card is a flat list with nothing to look at first.
+   The serif is the app's brand face, used here and nowhere else in a
+   control. Borrowed from the stacked-card layout that lost on height. */
+
+.group-row.hero {
+  flex-wrap: wrap;
+  padding: 13px 13px 14px;
+}
+
+.group-row.hero .row-label {
+  font-family: var(--serif);
+  font-size: 19px;
+  font-weight: 400;
+  color: var(--ink);
+}
+
+.group-row.hero .select-field.compact select {
+  font-size: 16px;
 }
 
 .music-credit {
-  margin: 4px 0 0;
+  margin: 10px 0 0;
   min-height: 1.2em;
   font-size: 11px;
   color: var(--ink-faint);
@@ -888,11 +938,13 @@ body[data-clock="topright"] #session {
   flex-direction: column;
   overflow: hidden;
   padding: 24px 22px calc(20px + env(safe-area-inset-bottom));
-  border: 1px solid var(--glass-border);
+  border: 1px solid var(--surface-border);
   border-radius: 22px;
-  background: rgba(16, 21, 28, 0.86);
-  -webkit-backdrop-filter: blur(28px) saturate(140%);
-  backdrop-filter: blur(28px) saturate(140%);
+  /* Opaque, not translucent (v41). A see-through panel over a moving image
+     reads as a form laid on a photograph; the blur it used to carry bought
+     nothing once the fill stopped letting the scene through. */
+  background: var(--surface);
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.5);
   text-align: center;
   opacity: 0;
   transform: translate(-50%, -46%);
@@ -928,32 +980,23 @@ body[data-clock="topright"] #session {
   padding: 0 22px;
 }
 
+/* #setup reuses .sheet-scroll but carries 18px of padding, not 22px — the
+   bleed has to match its own inset or the groups sit off-centre. */
+#setup .sheet-scroll {
+  margin: 0 -18px;
+  padding: 0 18px;
+  /* Don't grow to fill the card — shrink to content so Back/Start sit right
+     under the last group in portrait (no dead gap), and only start scrolling
+     when the content genuinely can't fit, as on a landscape phone. */
+  flex: 0 1 auto;
+}
+
 .sheet-title {
   flex: none;
   margin: 0 0 20px;
   font-family: var(--serif);
   font-size: 22px;
   font-weight: 500;
-}
-
-.sheet-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 14px;
-  margin-bottom: 14px;
-  text-align: left;
-}
-
-.sheet-row.hidden {
-  display: none;
-}
-
-.sheet-label {
-  font-size: 15px;
-  font-weight: 300;
-  color: var(--ink-dim);
-  white-space: nowrap;
 }
 
 /* Same treatment as the setup screen's .select-field, minus the inline
@@ -993,8 +1036,11 @@ body[data-clock="topright"] #session {
   outline: none;
 }
 
+/* One surviving note (Countdown). It hangs under its group rather than
+   under its row, so it reads as a footnote to the group instead of as a
+   caption the other three rows are missing. */
 .sheet-note {
-  margin: -6px 0 18px;
+  margin: 8px 4px 16px;
   font-size: 12px;
   line-height: 1.45;
   text-align: left;
@@ -1020,14 +1066,8 @@ body[data-clock="topright"] #session {
     padding-bottom: calc(env(safe-area-inset-bottom) + 14px);
   }
 
-  .prompt {
-    margin-bottom: 10px;
-    font-size: 15px;
-  }
-
   .durations {
-    margin-bottom: 10px;
-    gap: 8px;
+    gap: 7px;
   }
 
   .pill {
@@ -1040,12 +1080,41 @@ body[data-clock="topright"] #session {
     font-size: 15px;
   }
 
-  .sound-section {
-    margin-bottom: 10px;
+  /* Landscape phones: the setup card takes almost the whole viewport and
+     tightens its rows, rather than overflowing Back/Start off the bottom
+     edge — the failure this panel has shipped three times (v14/v22/v37).
+     The scroll region still catches anything that can't fit. */
+  #setup {
+    max-height: calc(100vh - 24px);
+    padding: 12px 16px calc(10px + env(safe-area-inset-bottom));
   }
 
-  .prompt-sub {
+  #setup .setup-actions {
+    margin-top: 10px;
+  }
+
+  .group-head {
+    margin-bottom: 3px;
+  }
+
+  .group-head + .group {
     margin-bottom: 6px;
+  }
+
+  .group-row {
+    padding: 6px 12px;
+  }
+
+  .group-row.hero {
+    padding: 8px 12px;
+  }
+
+  .group-row.hero .row-label {
+    font-size: 17px;
+  }
+
+  .sheet-note {
+    margin: 6px 4px 12px;
   }
 
   .scene-name {
@@ -1066,17 +1135,16 @@ body[data-clock="topright"] #session {
     padding: 16px 18px calc(14px + env(safe-area-inset-bottom));
   }
 
+  /* The bleed has to track the sheet's own padding, which just dropped to
+     18px — at -22px the groups would sit 4px off-centre. */
+  .sheet .sheet-scroll {
+    margin: 0 -18px;
+    padding: 0 18px;
+  }
+
   .sheet-title {
     margin-bottom: 12px;
     font-size: 19px;
-  }
-
-  .sheet-row {
-    margin-bottom: 10px;
-  }
-
-  .sheet-note {
-    margin-bottom: 12px;
   }
 }
 

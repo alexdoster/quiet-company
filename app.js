@@ -5,7 +5,7 @@
 // Bump alongside CACHE in sw.js on every deploy — this is the only
 // user-visible confirmation that a phone has picked up the latest build
 // (shown small, bottom-right, home screen only).
-const APP_VERSION = 40;
+const APP_VERSION = 41;
 
 // Scene labels are provisional placeholders — Alex finalizes the names.
 const SCENES = [
@@ -220,23 +220,21 @@ const musicCreditEl = $('.music-credit');
 // in-session sound sheet — so they're addressed as pairs and kept in sync
 // by renderSound() rather than duplicating any state.
 const musicSelects = [$('#music-select'), $('#s-music-select')];
-const chimeToggles = [$('#chimes-on'), $('#s-chimes-on')];
 
 const sheetBackdrop = $('#sheet-backdrop');
 const settingsSheet = $('#settings-sheet');
 const soundSheet = $('#sound-sheet');
 const countdownSelect = $('#countdown-select');
+// The only per-row note left (v41). Clock, Motion and Words type name their
+// own options in the dropdown; Chime sound previews on pick. Countdown keeps
+// one because "Never" changes what the app does, not just how it looks.
 const countdownNoteEl = $('#countdown-note');
 const clockSelect = $('#clock-select');
-const clockNoteEl = $('#clock-note');
 const motionSelect = $('#motion-select');
-const motionNoteEl = $('#motion-note');
 const textStyleSelect = $('#textstyle-select');
-const textStyleNoteEl = $('#textstyle-note');
 const bellsSelect = $('#bells-select');
 const prepSelect = $('#prep-select');
 const chimeSelect = $('#chime-select');
-const chimeNoteEl = $('#chime-note');
 
 /* ---------- Persistence ---------- */
 
@@ -1038,16 +1036,20 @@ openToggle.addEventListener('click', () => {
 let musicCategory = store.get('musicCategory', 'none');
 let musicTrackIndex = store.get('musicTrackIndex', 0);
 
-// Chimes stay on by default — they're a timer function, not atmosphere,
-// which is why they were exempt from the sound-is-opt-in rule. Anyone who had
-// the global mute switched on wanted silence, and chimes were the only
-// source that mute covered which had no switch of its own, so their setting
-// carries over to this one rather than quietly turning sound back on.
-let chimesOn = store.get('chimesOn', null);
-if (chimesOn === null) {
-  chimesOn = !store.get('muted', false);
-  store.set('chimesOn', chimesOn);
-}
+/* Chimes have no switch (v41). They're a timer function, not atmosphere —
+   the start and end strikes ARE the thing you opened a timer for. The v39
+   switch that used to live here created a state the app's own copy
+   contradicted: Settings still tells you "No clock at all. The closing
+   chime tells you when you're done" under Countdown: Never, while the
+   switch could turn that chime off, leaving a fixed session with no signal
+   at all for someone sitting with their eyes closed.
+
+   Interval bells keep their off switch — it's in their own dropdown, and
+   optional markers really are optional. Silence is the hardware volume
+   buttons, which is faster than anything reachable through a sheet anyway.
+   (Not the iOS silent switch: it can stop WebAudio playing at all, a
+   separate long-standing quirk on this app.) The stored `chimesOn` key is
+   simply no longer read; a stale localStorage entry costs nothing. */
 
 // Music options are built from MUSIC into both copies of the control;
 // option values are "category:trackIndex" so one select carries both
@@ -1082,8 +1084,6 @@ function renderSound() {
     : 'none';
   for (const select of musicSelects) select.value = value;
   musicCreditEl.classList.toggle('visible', !!group);
-
-  for (const select of chimeToggles) select.value = chimesOn ? 'on' : 'off';
 }
 
 /* Mid-session changes. Setup-screen changes land before anything is
@@ -1109,16 +1109,6 @@ function applyMusicLive() {
   if (uiState === 'paused') musicAudio?.pause();
 }
 
-// No live handling needed: nothing is playing when this changes on the setup
-// screen, and mid-session it only affects the next chime to fire.
-for (const select of chimeToggles) {
-  select.addEventListener('change', () => {
-    chimesOn = select.value === 'on';
-    store.set('chimesOn', chimesOn);
-    renderSound();
-  });
-}
-
 for (const select of musicSelects) {
   select.addEventListener('change', () => {
     const [cat, index] = select.value.split(':');
@@ -1132,11 +1122,26 @@ for (const select of musicSelects) {
 }
 
 /* ---------- Settings (app-wide, set once) ----------
-   Deliberately separate from the setup screen's sound controls, split by
-   lifetime: setup holds what you pick for THIS session (scene, length,
-   prep, bells, track), Settings holds preferences you set once and forget.
-   Keeping sound out of here avoids two places that both claim to own it. */
+   Split from the setup screen by LIFETIME, not by category: setup holds
+   what you pick for THIS session (scene, length, prep, bells, track),
+   Settings holds preferences you set once and forget.
 
+   Chime voice lives here, and that placement was re-examined in v41 and
+   kept. The tempting argument is that a chime is a timer function so it
+   belongs with the timer — but that's category, and the rule is lifetime.
+   Which voice the bell has is a ringtone: set once, never touched again.
+   What had actually made it feel misfiled was two controls with nearly the
+   same name on different screens ("Chimes" on setup, "Chime sound" here),
+   and deleting the on/off switch resolved that without moving anything. */
+
+/* The one surviving caption. Its siblings for Clock, Motion and Words type
+   went in v41 — each of those dropdowns names its own options ("Top left",
+   "Still", "Sans caps"), so the note restated the value you'd just read.
+   This one earns its place: "Never" removes the clock entirely, which is a
+   consequence rather than a restatement.
+
+   And it is exactly why chimes lost their on/off switch in the same pass —
+   this copy has always promised the closing chime as the signal. */
 const COUNTDOWN_NOTES = {
   always: 'The clock stays on screen for the whole session.',
   rest: 'The clock fades with the controls and returns on a tap.',
@@ -1146,26 +1151,6 @@ const COUNTDOWN_NOTES = {
 // Defaults to 'always': a first-run screen with no clock on it reads as
 // missing functionality rather than as a deliberate setting. Hiding it is
 // opt-in, found once the user goes looking.
-const CLOCK_NOTES = {
-  auto: 'Centered, or docked top-left on a landscape phone.',
-  center: 'Always centered above the controls.',
-  topleft: 'Docked top-left in any orientation.',
-  topright: 'Docked top-right; the sound button moves left during a session.',
-};
-
-const MOTION_NOTES = {
-  zoom: 'The scene drifts slowly in and back out.',
-  still: 'The scene holds a fixed frame.',
-};
-
-// How the Words scene sets its type. Three real looks rather than a slider,
-// so the choice is quick and every option is one someone would actually pick.
-const TEXTSTYLE_NOTES = {
-  sans: 'Plain and quiet. Closest to a bumper card.',
-  caps: 'Small, wide, all caps. The most graphic of the three.',
-  serif: 'Matches the rest of the app.',
-};
-
 let countdownMode = store.get('countdownMode', 'always');
 // Every scene's subject is centre-framed by design, so the corners are
 // normally background — but not all of them are (Android sits left of
@@ -1190,18 +1175,14 @@ function applySettings() {
   countdownNoteEl.textContent = COUNTDOWN_NOTES[countdownMode];
   countdownSelect.value = countdownMode;
   document.body.dataset.clock = clockPosition;
-  clockNoteEl.textContent = CLOCK_NOTES[clockPosition];
   clockSelect.value = clockPosition;
   document.body.dataset.motion = sceneMotion;
-  motionNoteEl.textContent = MOTION_NOTES[sceneMotion];
   motionSelect.value = sceneMotion;
   document.body.dataset.textstyle = textStyle;
-  textStyleNoteEl.textContent = TEXTSTYLE_NOTES[textStyle];
   textStyleSelect.value = textStyle;
   bellsSelect.value = String(intervalBellMs / 60000);
   prepSelect.value = String(prepSeconds);
   chimeSelect.value = chimeVoice;
-  chimeNoteEl.textContent = currentVoice().note;
 }
 
 countdownSelect.addEventListener('change', () => {
@@ -1244,7 +1225,8 @@ chimeSelect.addEventListener('change', () => {
   store.set('chimeVoice', chimeVoice);
   applySettings();
   // Preview on pick — choosing a sound you cannot hear is not a choice.
-  // Routed through masterGain like everything else, so mute silences it.
+  // This is also why the voice picker carries no caption: hearing it beats
+  // reading about it, which is what let the other four notes go in v41.
   ensureAudio();
   strike('end', 0, 0.14, 4);
 });
@@ -1393,7 +1375,12 @@ function ensureAudio() {
    to mishandle. Each voice picks its own pitches per role, because a gong
    at the bell's C5 does not read as a gong. Within every voice the three
    roles stay pitch-separated, so a minute marker is never mistaken for the
-   session ending. */
+   session ending.
+
+   `note` is no longer rendered — v41 dropped the caption under the picker,
+   since previewing a voice on pick tells you more than a sentence can. Kept
+   because it describes each voice's character next to the numbers that
+   produce it, which is the useful place for it when tuning them. */
 
 // One struck partial. `attack` doubles as the bloom control: giving upper
 // partials a later attack than the fundamental is what separates a gong's
@@ -1516,25 +1503,21 @@ function strike(role, delaySeconds, peak, decaySeconds) {
                peak, decaySeconds * voice.decayScale);
 }
 
-/* The three session chimes all respect the Chimes switch. The Settings
-   preview deliberately does not — it calls strike() directly, because
-   auditioning a chime voice you have switched off still has to make a
-   sound or the picker is useless. */
+/* Unconditional as of v41 — see the note by the music state for why the
+   on/off switch went. chimeInterval() is only ever called when the user has
+   set an interval, so it needs no gate of its own. */
 
 function chimeStart() {
-  if (!chimesOn) return;
   ensureAudio();
   strike('start', 0.1, 0.1, 2.5);
 }
 
 function chimeInterval() {
-  if (!chimesOn) return;
   ensureAudio();
   strike('interval', 0, 0.09, 3.5);
 }
 
 function chimeEnd() {
-  if (!chimesOn) return;
   ensureAudio();
   // Struck twice, slowly, so completion reads as deliberate rather than as
   // one more marker.

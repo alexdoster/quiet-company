@@ -63,66 +63,73 @@
         <button id="choose" class="pill cta">Begin</button>
       </section>
 
-      <section id="setup" class="panel" aria-label="Session length">
-        <p class="prompt">How long would you like to sit?</p>
-        <div id="durations" class="durations" role="group" aria-label="Session length">
-          <!-- No visible label on these two: the options already carry their
-               unit ("0 h", "12 min"), so a label restates it and pushed the
-               row past the width of a portrait phone. The prompt above says
-               what the row is for; aria-label carries it for screen readers. -->
-          <label class="select-field compact" id="hours-field">
-            <select id="hours-select" aria-label="Hours"></select>
-          </label>
-          <label class="select-field compact" id="minutes-field">
-            <select id="minutes-select" aria-label="Minutes"></select>
-          </label>
-          <button id="open-toggle" class="pill duration-open" aria-pressed="false"
-                  aria-label="Open ended, no set length">&#8734;</button>
-        </div>
-        <div class="option-row">
-          <label class="select-field">
-            <span class="select-label">Prep time</span>
-            <select id="prep-select">
-              <option value="0">No pause</option>
-              <option value="5">5 seconds</option>
-              <option value="10">10 seconds</option>
-              <option value="20">20 seconds</option>
-              <option value="30">30 seconds</option>
-              <option value="60">1 minute</option>
-            </select>
-          </label>
-          <label class="select-field">
-            <span class="select-label">Bells</span>
-            <select id="bells-select">
-              <option value="0">Off</option>
-              <option value="1">Every minute</option>
-              <option value="2">Every 2 minutes</option>
-              <option value="3">Every 3 minutes</option>
-              <option value="5">Every 5 minutes</option>
-              <option value="10">Every 10 minutes</option>
-              <option value="15">Every 15 minutes</option>
-            </select>
-          </label>
-        </div>
-        <div id="sound" class="sound-section">
-          <p class="prompt-sub">Sound</p>
-          <div class="sound-rows">
-            <label class="select-field">
-              <span class="select-label">Music</span>
-              <select id="music-select"></select>
+      <!-- Grouped rows on an opaque sheet, not a glass panel over the video:
+           a translucent panel on a moving image reads as a form laid over a
+           photograph. Two group headers carry the explaining, so no row needs
+           its own caption. Interval bells sit under Sound rather than beside
+           Prep time — it's a sound, not a duration. -->
+      <section id="setup" class="panel" aria-label="Session setup">
+        <div class="sheet-scroll">
+
+          <p class="group-head" id="sit-head">This sit</p>
+          <div class="group" role="group" aria-labelledby="sit-head">
+            <div class="group-row hero">
+              <span class="row-label" id="length-label">Length</span>
+              <!-- No visible label on the two selects: the options already
+                   carry their unit ("0 h", "12 min"), so a label restates it
+                   and pushed the row past the width of a portrait phone. -->
+              <div id="durations" class="durations" role="group"
+                   aria-labelledby="length-label">
+                <label class="select-field compact" id="hours-field">
+                  <select id="hours-select" aria-label="Hours"></select>
+                </label>
+                <label class="select-field compact" id="minutes-field">
+                  <select id="minutes-select" aria-label="Minutes"></select>
+                </label>
+                <button id="open-toggle" class="pill duration-open" aria-pressed="false"
+                        aria-label="Open ended, no set length">&#8734;</button>
+              </div>
+            </div>
+            <label class="group-row">
+              <span class="row-label">Prep time</span>
+              <span class="select-shell">
+                <select id="prep-select">
+                  <option value="0">No pause</option>
+                  <option value="5">5 seconds</option>
+                  <option value="10">10 seconds</option>
+                  <option value="20">20 seconds</option>
+                  <option value="30">30 seconds</option>
+                  <option value="60">1 minute</option>
+                </select>
+              </span>
             </label>
-            <!-- The start, end and interval bells. Named "Chimes" rather
-                 than "Bells" so it doesn't read as the interval-bells
-                 control sitting two rows up. -->
-            <label class="select-field">
-              <span class="select-label">Chimes</span>
-              <select id="chimes-on">
-                <option value="on">On</option>
-                <option value="off">Off</option>
-              </select>
+          </div>
+
+          <p class="group-head" id="sound-head">Sound</p>
+          <div class="group" role="group" aria-labelledby="sound-head">
+            <label class="group-row">
+              <span class="row-label">Interval bells</span>
+              <span class="select-shell">
+                <select id="bells-select">
+                  <option value="0">Off</option>
+                  <option value="1">Every minute</option>
+                  <option value="2">Every 2 minutes</option>
+                  <option value="3">Every 3 minutes</option>
+                  <option value="5">Every 5 minutes</option>
+                  <option value="10">Every 10 minutes</option>
+                  <option value="15">Every 15 minutes</option>
+                </select>
+              </span>
+            </label>
+            <label class="group-row">
+              <span class="row-label">Music</span>
+              <span class="select-shell">
+                <select id="music-select"></select>
+              </span>
             </label>
           </div>
           <p class="music-credit">Music by Scott Buckley &mdash; CC BY 4.0</p>
+
         </div>
         <div class="setup-actions">
           <button id="back" class="pill subtle">Back</button>
@@ -160,68 +167,73 @@
            aria-label="Settings" hidden>
     <h2 class="sheet-title">Settings</h2>
 
+    <!-- Two groups, and only one surviving note. Clock, Motion and Words
+         type name their own options; Chime sound previews on pick, which
+         beats a caption. Countdown keeps its note because a tri-state whose
+         third option changes what the app does isn't self-describing. -->
     <div class="sheet-scroll">
-    <label class="sheet-row">
-      <span class="sheet-label">Countdown</span>
-      <span class="select-shell">
-        <select id="countdown-select">
-          <option value="always">Always shown</option>
-          <option value="rest">Tap to check</option>
-          <option value="never">Never</option>
-        </select>
-      </span>
-    </label>
-    <p class="sheet-note" id="countdown-note"></p>
 
-    <label class="sheet-row">
-      <span class="sheet-label">Clock position</span>
-      <span class="select-shell">
-        <select id="clock-select">
-          <option value="auto">Auto</option>
-          <option value="center">Centered</option>
-          <option value="topleft">Top left</option>
-          <option value="topright">Top right</option>
-        </select>
-      </span>
-    </label>
-    <p class="sheet-note" id="clock-note"></p>
+      <p class="group-head" id="screen-head">On screen</p>
+      <div class="group" role="group" aria-labelledby="screen-head">
+        <label class="group-row">
+          <span class="row-label">Countdown</span>
+          <span class="select-shell">
+            <select id="countdown-select">
+              <option value="always">Always shown</option>
+              <option value="rest">Tap to check</option>
+              <option value="never">Never</option>
+            </select>
+          </span>
+        </label>
+        <label class="group-row">
+          <span class="row-label">Clock position</span>
+          <span class="select-shell">
+            <select id="clock-select">
+              <option value="auto">Auto</option>
+              <option value="center">Centered</option>
+              <option value="topleft">Top left</option>
+              <option value="topright">Top right</option>
+            </select>
+          </span>
+        </label>
+        <label class="group-row">
+          <span class="row-label">Scene motion</span>
+          <span class="select-shell">
+            <select id="motion-select">
+              <option value="zoom">Slow zoom</option>
+              <option value="still">Still</option>
+            </select>
+          </span>
+        </label>
+        <label class="group-row">
+          <span class="row-label">Words type</span>
+          <span class="select-shell">
+            <select id="textstyle-select">
+              <option value="sans">Sans</option>
+              <option value="caps">Sans caps</option>
+              <option value="serif">Serif</option>
+            </select>
+          </span>
+        </label>
+      </div>
+      <p class="sheet-note" id="countdown-note"></p>
 
-    <label class="sheet-row">
-      <span class="sheet-label">Scene motion</span>
-      <span class="select-shell">
-        <select id="motion-select">
-          <option value="zoom">Slow zoom</option>
-          <option value="still">Still</option>
-        </select>
-      </span>
-    </label>
-    <p class="sheet-note" id="motion-note"></p>
+      <p class="group-head" id="chime-head">Sound</p>
+      <div class="group" role="group" aria-labelledby="chime-head">
+        <label class="group-row">
+          <span class="row-label">Chime sound</span>
+          <span class="select-shell">
+            <select id="chime-select">
+              <option value="bell">Bell</option>
+              <option value="bowl">Singing bowl</option>
+              <option value="gong">Gong</option>
+              <option value="glass">Glass</option>
+              <option value="wood">Temple block</option>
+            </select>
+          </span>
+        </label>
+      </div>
 
-    <label class="sheet-row">
-      <span class="sheet-label">Words type</span>
-      <span class="select-shell">
-        <select id="textstyle-select">
-          <option value="sans">Sans</option>
-          <option value="caps">Sans caps</option>
-          <option value="serif">Serif</option>
-        </select>
-      </span>
-    </label>
-    <p class="sheet-note" id="textstyle-note"></p>
-
-    <label class="sheet-row">
-      <span class="sheet-label">Chime sound</span>
-      <span class="select-shell">
-        <select id="chime-select">
-          <option value="bell">Bell</option>
-          <option value="bowl">Singing bowl</option>
-          <option value="gong">Gong</option>
-          <option value="glass">Glass</option>
-          <option value="wood">Temple block</option>
-        </select>
-      </span>
-    </label>
-    <p class="sheet-note" id="chime-note"></p>
     </div>
 
     <button class="pill cta sheet-done">Done</button>
@@ -231,23 +243,19 @@
            aria-label="Sound" hidden>
     <h2 class="sheet-title">Sound</h2>
 
+    <!-- Music only. Chimes lost their switch in v41 (start and end are the
+         timer, not atmosphere), and interval bells aren't here because
+         #bells-select is a single element rather than a synced pair — making
+         it one is more regression surface than this sheet currently needs. -->
     <div class="sheet-scroll">
-    <label class="sheet-row">
-      <span class="sheet-label">Music</span>
-      <span class="select-shell">
-        <select id="s-music-select"></select>
-      </span>
-    </label>
-
-    <label class="sheet-row">
-      <span class="sheet-label">Chimes</span>
-      <span class="select-shell">
-        <select id="s-chimes-on">
-          <option value="on">On</option>
-          <option value="off">Off</option>
-        </select>
-      </span>
-    </label>
+      <div class="group">
+        <label class="group-row">
+          <span class="row-label">Music</span>
+          <span class="select-shell">
+            <select id="s-music-select"></select>
+          </span>
+        </label>
+      </div>
     </div>
 
     <button class="pill cta sheet-done">Done</button>
