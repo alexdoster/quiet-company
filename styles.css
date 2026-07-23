@@ -608,11 +608,12 @@ body.at-home .scrim {
   font-variant-numeric: tabular-nums; /* the row doesn't twitch on 9 -> 10 */
 }
 
-/* Open-ended on: the hours/minutes fields stay in place but stop taking
-   input, so the length you'd return to is still readable. */
-.select-field.disabled {
-  opacity: 0.4;
-  pointer-events: none;
+/* Open-ended on: the hours/minutes fields dim to show ∞ is the active
+   choice, but stay fully interactive — tapping one picks a length and
+   leaves ∞ in a single move (see readDuration). No pointer-events lock,
+   which is what used to force a detour through the toggle. */
+.select-field.dim {
+  opacity: 0.5;
 }
 
 /* Open-ended sessions, shown as ∞. A text glyph rather than an SVG — the

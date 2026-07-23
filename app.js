@@ -5,7 +5,7 @@
 // Bump alongside CACHE in sw.js on every deploy — this is the only
 // user-visible confirmation that a phone has picked up the latest build
 // (shown small, bottom-right, home screen only).
-const APP_VERSION = 41;
+const APP_VERSION = 42;
 
 // Scene labels are provisional placeholders — Alex finalizes the names.
 const SCENES = [
@@ -993,18 +993,24 @@ function renderDurations() {
   minutesSelect.value = String(sessionMinutes % 60);
   openToggle.classList.toggle('selected', openEnded);
   openToggle.setAttribute('aria-pressed', String(openEnded));
-  // The length controls stay visible while open-ended is on, rather than
-  // being hidden — the value they hold is what you come back to when you
-  // switch the toggle off, and a control that vanishes reads as broken.
+  // The length controls stay visible AND live while open-ended is on. Dimmed
+  // to show ∞ is the active choice, but still tappable — picking a length is
+  // how you leave ∞, without a detour through the toggle first (the whole
+  // point of a length control is to set a length). readDuration() clears
+  // openEnded when they change, so the dim is a state cue, not a lock.
   for (const field of [hoursField, minutesField]) {
-    field.classList.toggle('disabled', openEnded);
-  }
-  for (const select of [hoursSelect, minutesSelect]) {
-    select.disabled = openEnded;
+    field.classList.toggle('dim', openEnded);
   }
 }
 
 function readDuration() {
+  // Touching the length picker means you want a timed session — leave ∞ if
+  // it was on. This is what makes the dimmed-but-live selects work: the act
+  // of picking a length is itself the switch back.
+  if (openEnded) {
+    openEnded = false;
+    store.set('openEnded', false);
+  }
   // Clamps rather than refusing: 3 h 30 min lands on the 3 h maximum and
   // 0 h 0 min on one minute, both visibly, instead of leaving Start armed
   // with a length the app can't run.
