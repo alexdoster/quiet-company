@@ -46,13 +46,9 @@
   <main id="ui" class="state-browse">
     <header class="top">
       <button id="to-home" class="pill subtle home-btn">&#8249; Scenes</button>
-      <!-- A text glyph, not an SVG. SVG icons failed to render on this app
-           twice (v9/v10) for reasons never pinned down; ∞ and ▾ are already
-           proven here. A glyph can also only ever render as the wrong shape,
-           never as nothing, which is exactly how the SVG failed. The slash
-           for the muted state is drawn in CSS. -->
-      <button id="mute" class="pill mute-toggle" aria-pressed="false"
-              aria-label="Mute"><span aria-hidden="true">&#9834;</span></button>
+      <!-- No mute button. Every source now has its own switch in the Sound
+           section, and the phone's volume and silent switch are a faster
+           global mute than anything reachable through a sheet. -->
     </header>
 
     <button id="nav-prev" class="nav-arrow prev" aria-label="Previous scene">&#8249;</button>
@@ -120,6 +116,16 @@
             <label class="select-field">
               <span class="select-label">Music</span>
               <select id="music-select"></select>
+            </label>
+            <!-- The start, end and interval bells. Named "Chimes" rather
+                 than "Bells" so it doesn't read as the interval-bells
+                 control sitting two rows up. -->
+            <label class="select-field">
+              <span class="select-label">Chimes</span>
+              <select id="chimes-on">
+                <option value="on">On</option>
+                <option value="off">Off</option>
+              </select>
             </label>
           </div>
           <p class="music-credit">Music by Scott Buckley &mdash; CC BY 4.0</p>
@@ -246,6 +252,16 @@
       <span class="sheet-label">Music</span>
       <span class="select-shell">
         <select id="s-music-select"></select>
+      </span>
+    </label>
+
+    <label class="sheet-row">
+      <span class="sheet-label">Chimes</span>
+      <span class="select-shell">
+        <select id="s-chimes-on">
+          <option value="on">On</option>
+          <option value="off">Off</option>
+        </select>
       </span>
     </label>
     </div>

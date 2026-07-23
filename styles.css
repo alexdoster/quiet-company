@@ -385,8 +385,10 @@ body.at-home .scrim {
   transition: opacity 0.9s var(--ease);
 }
 
-/* Back to the home grid — kept in the layout (visibility, not display)
-   so the mute button doesn't jump when it's unavailable. */
+/* Back to the home grid. Hidden with visibility rather than display so it
+   keeps its space: it's the only thing left in the header since the mute
+   button went in v39, and collapsing the row would shift the panels below
+   it every time the state changed. */
 .home-btn {
   padding: 8px 16px;
   font-size: 13px;
@@ -398,42 +400,6 @@ body.at-home .scrim {
 .state-browse .home-btn,
 .state-complete .home-btn {
   visibility: visible;
-}
-
-/* Global mute, as a round glyph button. It went from icon to text in v10
-   after two SVG attempts rendered nothing; it's an icon again because the
-   session screen also carries a "Sound" button (which opens the ambience
-   and track picker), and the same word on two controls doing different
-   jobs was the actual confusion. This one is the mute, so it takes the
-   glyph and the other keeps the word. */
-
-.mute-toggle {
-  position: relative; /* anchors the muted slash */
-  display: grid;
-  place-items: center;
-  width: 40px;
-  height: 40px;
-  padding: 0;
-  font-size: 17px;
-  line-height: 1;
-}
-
-.mute-toggle.muted {
-  color: var(--ink-faint);
-}
-
-/* Drawn, not a second glyph: the crossed-out speaker characters are emoji
-   presentation on most platforms and would come out colour. */
-.mute-toggle.muted::after {
-  content: "";
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  width: 22px;
-  height: 1.5px;
-  background: currentColor;
-  border-radius: 1px;
-  transform: translate(-50%, -50%) rotate(-45deg);
 }
 
 /* ---------- Carousel navigation (browse state only) ---------- */
@@ -865,15 +831,6 @@ body[data-clock="topright"] #session {
   display: flex;
   flex-direction: column;
   justify-content: flex-end;
-}
-
-/* The mute toggle already owns the top-right corner, so a clock docked
-   there would sit on top of it. Flip the header row for the duration of a
-   session — "‹ Scenes" is hidden in these states anyway, so the only
-   visible effect is the mute button moving to the left. */
-body[data-clock="topright"] .state-running .top,
-body[data-clock="topright"] .state-paused .top {
-  flex-direction: row-reverse;
 }
 
 .resting .session-controls,

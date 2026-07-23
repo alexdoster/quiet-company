@@ -5,7 +5,7 @@
 // Bump alongside CACHE in sw.js on every deploy — this is the only
 // user-visible confirmation that a phone has picked up the latest build
 // (shown small, bottom-right, home screen only).
-const APP_VERSION = 38;
+const APP_VERSION = 39;
 
 // Scene labels are provisional placeholders — Alex finalizes the names.
 const SCENES = [
@@ -233,7 +233,6 @@ const minutesSelect = $('#minutes-select');
 const openToggle = $('#open-toggle');
 const countdownEl = $('#countdown');
 const pauseBtn = $('#pause');
-const muteBtn = $('#mute');
 const gagBtn = $('#gag');
 const cardGridEl = $('#card-grid');
 const toHomeBtn = $('#to-home');
@@ -245,6 +244,7 @@ const musicCreditEl = $('.music-credit');
 const ambienceFields = [$('#ambience-field'), $('#s-ambience-field')];
 const ambienceSelects = [$('#ambience-select'), $('#s-ambience-select')];
 const musicSelects = [$('#music-select'), $('#s-music-select')];
+const chimeToggles = [$('#chimes-on'), $('#s-chimes-on')];
 
 const sheetBackdrop = $('#sheet-backdrop');
 const settingsSheet = $('#settings-sheet');
@@ -1071,6 +1071,17 @@ let ambienceOn = store.get('ambienceOn', false);
 let musicCategory = store.get('musicCategory', 'none');
 let musicTrackIndex = store.get('musicTrackIndex', 0);
 
+// Chimes stay on by default — they're a timer function, not ambience, which
+// is why they were exempt from the old sound-is-opt-in rule. Anyone who had
+// the global mute switched on wanted silence, and chimes were the only
+// source that mute covered which had no switch of its own, so their setting
+// carries over to this one rather than quietly turning sound back on.
+let chimesOn = store.get('chimesOn', null);
+if (chimesOn === null) {
+  chimesOn = !store.get('muted', false);
+  store.set('chimesOn', chimesOn);
+}
+
 // Music options are built from MUSIC into both copies of the control;
 // option values are "category:trackIndex" so one select carries both
 // stored keys.
@@ -1113,6 +1124,8 @@ function renderSound() {
     : 'none';
   for (const select of musicSelects) select.value = value;
   musicCreditEl.classList.toggle('visible', !!group);
+
+  for (const select of chimeToggles) select.value = chimesOn ? 'on' : 'off';
 }
 
 /* Mid-session changes. Setup-screen changes land before anything is
@@ -1154,6 +1167,16 @@ for (const select of ambienceSelects) {
     store.set('ambienceOn', ambienceOn);
     renderSound();
     applyAmbienceLive();
+  });
+}
+
+// No live handling needed: nothing is playing when this changes on the setup
+// screen, and mid-session it only affects the next chime to fire.
+for (const select of chimeToggles) {
+  select.addEventListener('change', () => {
+    chimesOn = select.value === 'on';
+    store.set('chimesOn', chimesOn);
+    renderSound();
   });
 }
 
@@ -1403,9 +1426,15 @@ document.addEventListener('visibilitychange', () => {
 
 /* ---------- Audio buses ---------- */
 
+/* There is no global mute. It was dropped in v39 along with the header
+   button: ambience and music already had their own off switches sitting in
+   the same section, so mute overlapped two controls and uniquely covered
+   only the chimes — which now have a switch of their own. On a phone the
+   hardware volume and silent switch are a faster everything-off than
+   anything reachable through a sheet, and they aren't duplicated here. */
+
 let audioCtx = null;
-let masterGain = null; // everything (bells + ambience) routes through here for mute
-let muted = store.get('muted', false);
+let masterGain = null; // chimes + ambience share this bus
 
 function ensureAudio() {
   const Ctx = window.AudioContext || window.webkitAudioContext;
@@ -1414,35 +1443,10 @@ function ensureAudio() {
   if (audioCtx.state === 'suspended') audioCtx.resume();
   if (!masterGain) {
     masterGain = audioCtx.createGain();
-    masterGain.gain.value = muted ? 0 : 1;
+    masterGain.gain.value = 1;
     masterGain.connect(audioCtx.destination);
   }
 }
-
-// The glyph itself never changes — the muted state is the CSS slash plus a
-// dimmer colour, so there's no second character to depend on.
-function renderMute() {
-  muteBtn.classList.toggle('muted', muted);
-  muteBtn.setAttribute('aria-pressed', String(muted));
-  muteBtn.setAttribute('aria-label', muted ? 'Unmute' : 'Mute');
-}
-
-function setMuted(next) {
-  muted = next;
-  store.set('muted', muted);
-  renderMute();
-  if (masterGain) {
-    masterGain.gain.setTargetAtTime(muted ? 0 : 1, audioCtx.currentTime, 0.15);
-  }
-  // .muted, not .volume — iOS Safari ignores volume writes on media
-  // elements (read-only there), which left music audible through mute
-  if (musicAudio) musicAudio.muted = muted;
-}
-
-muteBtn.addEventListener('click', () => {
-  ensureAudio();
-  setMuted(!muted);
-});
 
 /* ---------- Chimes (synthesized — no audio asset, no licensing) ---------- */
 
@@ -1575,17 +1579,25 @@ function strike(role, delaySeconds, peak, decaySeconds) {
                peak, decaySeconds * voice.decayScale);
 }
 
+/* The three session chimes all respect the Chimes switch. The Settings
+   preview deliberately does not — it calls strike() directly, because
+   auditioning a chime voice you have switched off still has to make a
+   sound or the picker is useless. */
+
 function chimeStart() {
+  if (!chimesOn) return;
   ensureAudio();
   strike('start', 0.1, 0.1, 2.5);
 }
 
 function chimeInterval() {
+  if (!chimesOn) return;
   ensureAudio();
   strike('interval', 0, 0.09, 3.5);
 }
 
 function chimeEnd() {
+  if (!chimesOn) return;
   ensureAudio();
   // Struck twice, slowly, so completion reads as deliberate rather than as
   // one more marker.
@@ -1606,7 +1618,6 @@ function startMusic(src) {
   musicAudio = new Audio(src);
   musicAudio.loop = true;
   musicAudio.volume = MUSIC_VOLUME; // level only — no-op on iOS, fine
-  musicAudio.muted = muted;
   musicAudio.play().catch(() => {});
 }
 
@@ -1767,11 +1778,14 @@ const Ambience = {
 /* ---------- Boot ---------- */
 
 renderDurations();
+// Also at boot, not only on entering setup: otherwise every sound control
+// sits at its markup default until the first visit to that screen, so the
+// DOM and the stored state disagree for anything read before then.
+renderSound();
 applySettings();
 // Land on the home grid without touching any video — setScene (and the
 // lazy video loading it triggers) waits for the first card tap.
 setUIState('home');
-renderMute();
 $('#version').textContent = 'v' + APP_VERSION;
 
 if ('serviceWorker' in navigator && location.protocol !== 'file:') {
