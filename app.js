@@ -5,7 +5,7 @@
 // Bump alongside CACHE in sw.js on every deploy — this is the only
 // user-visible confirmation that a phone has picked up the latest build
 // (shown small, bottom-right, home screen only).
-const APP_VERSION = 34;
+const APP_VERSION = 35;
 
 // Scene labels are provisional placeholders — Alex finalizes the names.
 const SCENES = [
@@ -172,28 +172,32 @@ const TEXT_SCRIPT = [
   { inhale: 'Filling with clarity.', exhale: 'Carrying peace back with you.', focus: 'Open your eyes slowly.', core: true },
 ];
 
-// Shown on the browse/preview screen and during the settle window, so the
-// scene isn't a blank black rectangle before the script starts.
-const TEXT_PREVIEW_LINE = 'Breathe with the words.';
+/* Pacing. Every line is read, then taken away, and the screen is empty for
+   a beat before the next one arrives — the black between lines is part of
+   the scene, not dead air waiting to be filled.
 
-// Breath pacing. Fixed, not scaled to session length: every other scene
-// breathes at whatever rate Kling gave it, but this one sets the pace, and
-// a pace you can stretch to fit a 60-minute session isn't a breath.
-const INHALE_MS = 5000;
-const EXHALE_MS = 7000;
-const FOCUS_MS = 8000;
-const TRIAD_MS = INHALE_MS + EXHALE_MS + FOCUS_MS;
+   Hold scales with line length, because "No seeking." and "Breathing
+   kindness into your own heart." are not the same amount of reading, and a
+   single fixed duration either rushes the long ones or strands the short
+   ones on screen. */
+const LINE_HOLD_BASE_MS = 4000;
+const LINE_HOLD_PER_CHAR_MS = 90;
+const LINE_HOLD_MIN_MS = 4500;
+const LINE_HOLD_MAX_MS = 9000;
 
-// Silence between triads is the one elastic part, so a longer session gets
-// more quiet rather than more text. The minimum keeps a focus line from
-// being stepped on by the next inhale. The maximum is deliberately generous
-// — a several-minute silence inside a long sit is normal, and a tighter cap
-// made an hour-long session finish the script at twelve minutes and then
-// sit black, having said "open your eyes slowly" three quarters of an hour
+// Black between the lines within a triad. Fades eat ~1.2s of this, so it
+// wants to be comfortably longer than the pause is meant to feel.
+const LINE_REST_MS = 3500;
+
+// Black between triads: longer, to group each set of three, and the one
+// elastic part of the whole schedule — a longer session gets more quiet
+// rather than more text. The maximum is deliberately generous; a
+// several-minute silence inside a long sit is normal, and a tight cap made
+// an hour-long session finish the script at twelve minutes and then sit
+// black, having said "open your eyes slowly" three quarters of an hour
 // early.
-const TEXT_GAP_MIN_MS = 5000;
-const TEXT_GAP_MAX_MS = 300000;
-const TEXT_GAP_OPEN_MS = 10000; // open-ended sessions have no length to divide
+const TRIAD_REST_MIN_MS = 7000;
+const TRIAD_REST_MAX_MS = 300000;
 // Leave the last stretch of a fixed session wordless, so the closing line
 // lands before the end chime rather than on top of it.
 const TEXT_TAIL = 0.9;
@@ -620,42 +624,61 @@ function showTextLine(text) {
   }, TEXT_FADE_MS);
 }
 
-// Fit the script to the session rather than the other way round. Breath
-// durations are fixed, so the two things that can give are how many triads
-// play and how much silence sits between them.
+function lineHoldMs(text) {
+  return Math.min(
+    LINE_HOLD_MAX_MS,
+    Math.max(LINE_HOLD_MIN_MS, LINE_HOLD_BASE_MS + text.length * LINE_HOLD_PER_CHAR_MS)
+  );
+}
+
+// Everything in a triad except the elastic rest that follows it.
+function triadFixedMs(t) {
+  return (
+    lineHoldMs(t.inhale) +
+    lineHoldMs(t.exhale) +
+    lineHoldMs(t.focus) +
+    LINE_REST_MS * 2
+  );
+}
+
+// Fit the script to the session rather than the other way round. Reading
+// time is fixed, so the two things that can give are how many triads play
+// and how much black sits between them.
 function buildTextSchedule(durationMs) {
   const open = !durationMs;
   const budget = durationMs * TEXT_TAIL;
   let script = TEXT_SCRIPT;
-  let gap = TEXT_GAP_OPEN_MS;
+  let rest = TRIAD_REST_MIN_MS;
 
   if (!open) {
-    const fits = (list) => list.length * (TRIAD_MS + TEXT_GAP_MIN_MS) <= budget;
+    const fixed = (list) => list.reduce((sum, t) => sum + triadFixedMs(t), 0);
+    const fits = (list) => fixed(list) + list.length * TRIAD_REST_MIN_MS <= budget;
     // Short session: fall back to the core spine, which is the same arc in
     // miniature rather than the first half of the full one.
     if (!fits(script)) script = TEXT_SCRIPT.filter((t) => t.core);
     // Shorter still: drop from the end, but never the closing triad — a
     // session that stops before "Open your eyes slowly" has no ending.
-    while (script.length > 2 && !fits(script)) {
+    while (script.length > 1 && !fits(script)) {
       script = [...script.slice(0, -2), script[script.length - 1]];
     }
-    gap = Math.min(
-      TEXT_GAP_MAX_MS,
-      Math.max(TEXT_GAP_MIN_MS, (budget - script.length * TRIAD_MS) / script.length)
+    rest = Math.min(
+      TRIAD_REST_MAX_MS,
+      Math.max(TRIAD_REST_MIN_MS, (budget - fixed(script)) / script.length)
     );
   }
 
   const cues = [];
   let at = 0;
   for (const triad of script) {
-    cues.push({ at, text: triad.inhale });
-    at += INHALE_MS;
-    cues.push({ at, text: triad.exhale });
-    at += EXHALE_MS;
-    cues.push({ at, text: triad.focus });
-    at += FOCUS_MS;
-    cues.push({ at, text: '' }); // rest between triads, and after the last one
-    at += gap;
+    const lines = [triad.inhale, triad.exhale, triad.focus];
+    lines.forEach((text, i) => {
+      cues.push({ at, text });
+      at += lineHoldMs(text);
+      cues.push({ at, text: '' }); // the screen empties after every line
+      // Indexed, not compared by text: two identical lines in one triad
+      // would otherwise take the wrong branch.
+      at += i === lines.length - 1 ? rest : LINE_REST_MS;
+    });
   }
   return cues;
 }
@@ -665,10 +688,15 @@ function startTextScript() {
   textCueIndex = -1;
 }
 
+// Nothing on screen outside a running session — not while browsing, not
+// during the settle window. The first line is the session starting, so
+// showing any of it beforehand spends the opening on someone who hasn't
+// begun yet. The home-grid card carries a sample line instead, which is
+// where "what is this scene" actually gets answered.
 function stopTextScript() {
   textSchedule = null;
   textCueIndex = -1;
-  showTextLine(textLayer.classList.contains('active') ? TEXT_PREVIEW_LINE : '');
+  showTextLine('');
 }
 
 // Called from the session tick. Walks forward to the cue that owns the
