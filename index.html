@@ -254,6 +254,17 @@
         </label>
       </div>
 
+      <!-- The re-read path for the one-time welcome. Same explanation, since
+           the home screen keeps nothing after the first launch. -->
+      <p class="group-head" id="about-head">About</p>
+      <div class="group" role="group" aria-labelledby="about-head">
+        <p class="about-text">Quiet Company is a meditation timer with a focal
+          point. Choose a scene and set your length; a chime opens and closes
+          each sit, so you never have to check the time. With your eyes closed,
+          let the sound carry you. With them open, rest your gaze on the scene,
+          and when someone is breathing with you, match your breath to theirs.</p>
+      </div>
+
     </div>
 
     <button class="pill cta sheet-done">Done</button>
@@ -279,6 +290,25 @@
     </div>
 
     <button class="pill cta sheet-done">Done</button>
+  </section>
+
+  <!-- One-time welcome. Shown only on the first ever launch (qc.introSeen),
+       then never again — nothing persists on the home screen afterward. The
+       same text lives in Settings > About for anyone who wants to re-read it. -->
+  <section id="welcome" class="welcome" aria-label="Welcome" hidden>
+    <div class="welcome-inner">
+      <p class="welcome-eyebrow">A Meditation Timer</p>
+      <h1 class="welcome-brand">Quiet Company</h1>
+      <div class="welcome-body">
+        <p>Quiet Company is a meditation timer with a focal point.</p>
+        <p>Choose a scene and set your length. If you meditate with your eyes
+          closed, let the sound carry you. If you keep them open, rest your
+          gaze on the scene. When someone is breathing with you, match your
+          breath to theirs. Something steady to return to whenever the mind
+          wanders.</p>
+      </div>
+      <button id="welcome-enter" class="pill cta welcome-enter">Choose a scene</button>
+    </div>
   </section>
 
   <script src="app.js"></script>

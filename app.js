@@ -5,7 +5,7 @@
 // Bump alongside CACHE in sw.js on every deploy — this is the only
 // user-visible confirmation that a phone has picked up the latest build
 // (shown small, bottom-right, home screen only).
-const APP_VERSION = 55;
+const APP_VERSION = 56;
 
 // Scene labels are provisional placeholders — Alex finalizes the names.
 const SCENES = [
@@ -2071,6 +2071,25 @@ renderDurations();
 // DOM and the stored state disagree for anything read before then.
 renderSound();
 applySettings();
+
+// One-time welcome: shown only on the first ever launch, then never again.
+// introSeen flips when the person continues, not on show, so a first-run
+// that's closed without continuing still greets them next time. The same
+// text is always reachable in Settings > About, so nothing needs to stay
+// on the home screen.
+const welcome = $('#welcome');
+if (!store.get('introSeen', false)) {
+  welcome.hidden = false;
+  requestAnimationFrame(() => welcome.classList.add('open'));
+}
+$('#welcome-enter').addEventListener('click', () => {
+  store.set('introSeen', true);
+  welcome.classList.remove('open');
+  setTimeout(() => {
+    welcome.hidden = true;
+  }, 400);
+});
+
 // Land on the home grid without touching any video — setScene (and the
 // lazy video loading it triggers) waits for the first card tap.
 setUIState('home');

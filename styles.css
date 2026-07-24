@@ -329,6 +329,90 @@ body.at-home .scrim {
   color: var(--ink-dim);
 }
 
+/* One-time welcome overlay. Covers everything on the first ever launch and
+   fades out for good once the person continues. Same background as the home
+   grid so the transition is a fade between two versions of the same room,
+   not a jump between two screens. */
+.welcome {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: calc(env(safe-area-inset-top) + 40px)
+    calc(env(safe-area-inset-right) + 28px)
+    calc(env(safe-area-inset-bottom) + 32px)
+    calc(env(safe-area-inset-left) + 28px);
+  background:
+    radial-gradient(120% 90% at 50% 0%, #151d27 0%, rgba(13, 17, 22, 0) 60%),
+    var(--bg);
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity var(--fade) var(--ease), visibility 0s linear var(--fade);
+}
+
+.welcome.open {
+  opacity: 1;
+  visibility: visible;
+  transition: opacity var(--fade) var(--ease);
+}
+
+.welcome-inner {
+  max-width: 540px;
+  text-align: center;
+}
+
+.welcome-eyebrow {
+  margin: 0 0 12px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.28em;
+  text-indent: 0.28em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+}
+
+.welcome-brand {
+  margin: 0;
+  font-family: var(--serif);
+  font-size: clamp(30px, 6vw, 42px);
+  font-weight: 500;
+  letter-spacing: 0.02em;
+}
+
+.welcome-body {
+  margin: 28px 0 34px;
+}
+
+.welcome-body p {
+  margin: 0 0 16px;
+  font-size: 15px;
+  font-weight: 300;
+  line-height: 1.72;
+  color: var(--ink-dim);
+}
+
+.welcome-body p:last-child {
+  margin-bottom: 0;
+}
+
+.welcome-enter {
+  margin: 0 auto;
+}
+
+/* About text in the Settings sheet — the re-read path for the welcome. */
+.about-text {
+  margin: 0;
+  padding: 2px 2px 0;
+  font-size: 14px;
+  font-weight: 300;
+  line-height: 1.62;
+  color: var(--ink-dim);
+}
+
 /* Landscape phones open with the header eating 51% of a 390px-tall viewport
    and not one card fully visible — condensing on scroll doesn't help a screen
    you haven't scrolled yet. The eyebrow goes (the category line is the most
