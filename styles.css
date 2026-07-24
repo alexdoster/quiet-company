@@ -255,9 +255,14 @@ body.at-home .scrim {
   max-width: 1100px;
 }
 
-/* Condensing masthead (v49): the full three-line block scrolls away like any
-   other content, and this compact bar fades in once it has gone, keeping the
-   name on screen for the whole scroll at ~50px instead of ~130px.
+/* Condensing masthead: the full three-line block scrolls away like any other
+   content, and this compact bar fades in once it has gone, keeping one line on
+   screen for the whole scroll at ~50px instead of ~130px.
+
+   Styled as the tagline it is, not as a masthead (v51) — same sans, size and
+   dimmed ink as `.home-tagline` below, so it reads as that line persisting
+   rather than as a second, smaller brand lockup. Setting it in the serif at
+   brand weight was the tell that the bar was carrying the wrong content.
 
    A swap rather than a shrink, on purpose. Collapsing the header in place —
    the obvious implementation — removes ~85px of in-flow height at the moment
@@ -275,13 +280,11 @@ body.at-home .scrim {
   left: 0;
   right: 0;
   z-index: 3;
-  padding: calc(env(safe-area-inset-top) + 14px) 24px 20px;
+  padding: calc(env(safe-area-inset-top) + 15px) 24px 20px;
   text-align: center;
-  font-family: var(--serif);
-  font-size: 19px;
-  font-weight: 500;
-  letter-spacing: 0.06em;
-  color: var(--ink);
+  font-size: 15px;
+  font-weight: 300;
+  color: var(--ink-dim);
   background: linear-gradient(
     to bottom,
     #151d27 0%,
@@ -353,8 +356,8 @@ body.at-home .scrim {
   }
 
   .home-bar {
-    padding: calc(env(safe-area-inset-top) + 10px) 24px 16px;
-    font-size: 17px;
+    padding: calc(env(safe-area-inset-top) + 11px) 24px 16px;
+    font-size: 14px;
   }
 }
 

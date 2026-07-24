@@ -29,11 +29,13 @@
   <div class="scrim scrim-bottom" aria-hidden="true"></div>
 
   <section id="home" class="home" aria-label="Choose a scene">
-    <!-- Fades in once the masthead below has scrolled away, so the name stays
-         on screen without the full block costing a card row. aria-hidden: it
-         duplicates the h1, and a screen reader hearing the brand twice while
-         scrolling a gallery is noise. -->
-    <div class="home-bar" aria-hidden="true">Quiet Company</div>
+    <!-- Fades in once the masthead below has scrolled away. Carries the
+         tagline rather than the brand (v51): the name is the most redundant
+         string on this screen — it's on the icon they tapped — while this line
+         is what the screen is actually for. aria-hidden: it duplicates the
+         tagline below, and hearing it twice while scrolling a gallery is
+         noise. -->
+    <div class="home-bar" aria-hidden="true">Choose who sits with you</div>
     <header class="home-header">
       <p class="home-eyebrow">A Meditation Timer</p>
       <h1 class="home-brand">Quiet Company</h1>
