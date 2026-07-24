@@ -5,7 +5,7 @@
 // Bump alongside CACHE in sw.js on every deploy — this is the only
 // user-visible confirmation that a phone has picked up the latest build
 // (shown small, bottom-right, home screen only).
-const APP_VERSION = 53;
+const APP_VERSION = 54;
 
 // Scene labels are provisional placeholders — Alex finalizes the names.
 const SCENES = [
@@ -198,13 +198,17 @@ const MUSIC_VOLUME = 0.55;
    triads the scene shipped with in v34.
 
    The structural consequence: nothing here is a breath cue, so no line
-   depends on the one before it, none of them opens and none of them closes.
-   That buys a session that's different every time, and it costs the arc the
-   triads had — see buildTextSchedule for what the schedule does instead. */
+   depends on the one before it and any line can follow any other. That buys
+   a session that's different every time, and it costs the composed arc the
+   triads had — see buildTextSchedule for what the schedule does instead.
+
+   The one thing kept from the triads is the close. TEXT_CLOSER is held out
+   of the shuffle entirely and pinned to the end, because a random order
+   can't be asked to produce an ending. */
 
 const TEXT_LINES = [
   'Nothing needs to be fixed in this moment.',
-  'You are arrived in the present.',
+  'You have arrived.',
   'Awareness is the anchor.',
   'Effortless resting.',
   'Simple presence is enough.',
@@ -225,7 +229,6 @@ const TEXT_LINES = [
   'Nothing is separate.',
   'Simply being.',
   'You are already complete.',
-  'Nature is inherently clear and calm.',
   'Sanctuary is always accessible within.',
   'Awareness remains steady and caring.',
   'Notice where attention rests.',
@@ -279,6 +282,10 @@ const TEXT_LINES = [
   'Pure being, untouched by time.',
   'Lightly resting in what is.',
 ];
+
+// Not a member of TEXT_LINES, so it can never come up mid-session — it plays
+// once, last, and only where there's an end to play it against.
+const TEXT_CLOSER = 'Open your eyes slowly.';
 
 // The home card can't be random — it's the answer to "what is this scene",
 // and a grid that says something different every repaint reads as broken
@@ -946,31 +953,36 @@ function drawLines(count) {
 // sit ever shows the same line twice — the flat script's version of the
 // rule the triads had, where a longer session bought more silence rather
 // than faster text.
+//
+// The closer is reserved out of the budget before anything else is drawn
+// and appended last, so it lands on every fixed session however short —
+// a sit that runs out of room for its ending has the wrong thing missing.
 function buildTextSchedule(durationMs) {
   const open = !durationMs;
   let lines;
   let rest;
 
   if (open) {
-    // The one place the no-repeat rule can't hold: an open session has no
-    // length to fit, so it has to keep going past the 75th line rather than
-    // sit black for however long is left — the failure v34 hit and fixed on
-    // the triads. Fixed pace, and enough passes to outlast anyone: 75 lines
-    // at ~22s each is ~28 minutes a pass.
+    // Two things an open session can't do. It has no end, so it gets no
+    // closing line — "Open your eyes slowly" is a cue to stop, and there's
+    // nothing here to stop. And it has to keep going past the last line
+    // rather than sit black for however long is left, which is the failure
+    // v34 hit and fixed on the triads, so it's the one place the no-repeat
+    // rule gives: fixed pace, six passes deep (~2h45m).
     rest = OPEN_REST_MS;
     lines = drawLines(TEXT_LINES.length * 6);
   } else {
     const budget = durationMs * TEXT_TAIL;
+    // What's left for the shuffled lines once the closer has its slot.
+    const fill = budget - lineHoldMs(TEXT_CLOSER) - LINE_REST_MIN_MS;
     const pool = drawLines(TEXT_LINES.length);
     let spent = 0;
     let n = 0;
-    while (n < pool.length && spent + lineHoldMs(pool[n]) + LINE_REST_MIN_MS <= budget) {
+    while (n < pool.length && spent + lineHoldMs(pool[n]) + LINE_REST_MIN_MS <= fill) {
       spent += lineHoldMs(pool[n]) + LINE_REST_MIN_MS;
       n++;
     }
-    // At least one line however short the session — a Words scene that says
-    // nothing at all is the scene failing, not a short sit.
-    lines = pool.slice(0, Math.max(1, n));
+    lines = [...pool.slice(0, n), TEXT_CLOSER];
     const held = lines.reduce((sum, text) => sum + lineHoldMs(text), 0);
     rest = Math.min(
       LINE_REST_MAX_MS,
