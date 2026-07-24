@@ -5,7 +5,7 @@
 // Bump alongside CACHE in sw.js on every deploy — this is the only
 // user-visible confirmation that a phone has picked up the latest build
 // (shown small, bottom-right, home screen only).
-const APP_VERSION = 57;
+const APP_VERSION = 58;
 
 // Scene labels are provisional placeholders — Alex finalizes the names.
 const SCENES = [
@@ -164,45 +164,41 @@ const VARIANT_FADE_MS = 2000; // must match the .variant-video CSS crossfade
 // legally be embedded in a public repo. Two tracks per mood so there's
 // a real choice, not just one pick per category. File names keep their
 // original yoga- prefix from when this was scoped to that scene.
-/* Every track is a trimmed loop edit, not the full composition (v55).
-   Scott Buckley writes for film, so all six were built to swell: measured
-   end to end they climb 10-22 dB, arriving at full orchestral volume around
-   the two-minute mark. The opening minute or two of each is the part that
-   suits a meditation, so each file is cut to a window that ends at a trough
-   BEFORE its loudest section, with a 4s fade out, 2.5s of digital silence,
-   and a 1.5s fade back in baked in.
-
-   The fades are in the FILE rather than done at playback because .volume is
-   a no-op on iOS media elements (the v15 finding), and routing music through
-   a WebAudio gain node instead would make it stop playing on the silent
-   switch — the exact problem v43/v44 rebuilt the chimes to escape. Baked
-   in, a plain <audio loop> gives the whole behaviour for free.
-
-   Loop peaks now sit 4-9 dB below each track's original climax. Windows and
-   levels are recorded in assets/audio/CREDITS.md. Side effect: 67MB -> 13MB. */
+/* Full compositions again as of this version, reverting the v55 trimmed-loop
+   edit. Those loops baked 2.5s of digital silence into each tail so a plain
+   <audio loop> would soft-cut between repeats — but that gap of silence lands
+   as a distraction mid-meditation, the opposite of what it was meant to fix.
+   Full tracks play continuously on <audio loop> instead; the tradeoff is
+   Scott Buckley's film-scored swell (10-22 dB climb to an orchestral climax
+   around the two-minute mark), which is the wrong shape for a meditation but
+   the lesser evil versus the silence gap. Temporary: Alex is producing his
+   own meditation-shaped tracks to replace these. The v55 loop recipe and per-
+   track windows are preserved in git and in assets/audio/CREDITS.md history if
+   a re-cut is ever wanted. Side effect: back to 67MB (music is never precached
+   by the SW, so nothing is forced onto an install). */
 const MUSIC = [
   {
     id: 'restorative',
     label: 'Restorative',
     tracks: [
-      { label: 'Penumbra', src: 'assets/audio/yoga-restorative-penumbra-loop.mp3' },
-      { label: 'Meanwhile', src: 'assets/audio/yoga-restorative-meanwhile-loop.mp3' },
+      { label: 'Penumbra', src: 'assets/audio/yoga-restorative-penumbra.mp3' },
+      { label: 'Meanwhile', src: 'assets/audio/yoga-restorative-meanwhile.mp3' },
     ],
   },
   {
     id: 'flow',
     label: 'Flow',
     tracks: [
-      { label: 'Amberlight', src: 'assets/audio/yoga-flow-amberlight-loop.mp3' },
-      { label: 'Echoes Of Home', src: 'assets/audio/yoga-flow-echoes-of-home-loop.mp3' },
+      { label: 'Amberlight', src: 'assets/audio/yoga-flow-amberlight.mp3' },
+      { label: 'Echoes Of Home', src: 'assets/audio/yoga-flow-echoes-of-home.mp3' },
     ],
   },
   {
     id: 'vinyasa',
     label: 'Vinyasa',
     tracks: [
-      { label: 'Born Of The Sky', src: 'assets/audio/yoga-vinyasa-born-of-the-sky-loop.mp3' },
-      { label: 'Convergence', src: 'assets/audio/yoga-vinyasa-convergence-loop.mp3' },
+      { label: 'Born Of The Sky', src: 'assets/audio/yoga-vinyasa-born-of-the-sky.mp3' },
+      { label: 'Convergence', src: 'assets/audio/yoga-vinyasa-convergence.mp3' },
     ],
   },
 ];

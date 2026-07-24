@@ -1,6 +1,6 @@
 'use strict';
 
-const CACHE = 'quiet-company-v57';
+const CACHE = 'quiet-company-v58';
 
 // Small, reliable app-shell files only. Video/audio used to be listed
 // here too, but eagerly downloading tens of MB during install is exactly

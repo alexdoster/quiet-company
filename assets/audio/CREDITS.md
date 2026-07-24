@@ -50,41 +50,12 @@ imitate.
 
 | File | Category | Source |
 |---|---|---|
-| `yoga-restorative-penumbra-loop.mp3` | Restorative / Yin / Savasana | https://www.scottbuckley.com.au/library/penumbra/ |
-| `yoga-restorative-meanwhile-loop.mp3` | Restorative / Yin / Savasana | https://www.scottbuckley.com.au/library/meanwhile/ |
-| `yoga-flow-amberlight-loop.mp3` | Slow Flow / Hatha | https://www.scottbuckley.com.au/library/amberlight/ |
-| `yoga-flow-echoes-of-home-loop.mp3` | Slow Flow / Hatha | https://www.scottbuckley.com.au/library/echoes-of-home/ |
-| `yoga-vinyasa-born-of-the-sky-loop.mp3` | Vinyasa / Active Flow | https://www.scottbuckley.com.au/library/born-of-the-sky/ |
-| `yoga-vinyasa-convergence-loop.mp3` | Vinyasa / Active Flow | https://www.scottbuckley.com.au/library/convergence/ |
-
-### These are loop edits, not the full tracks (v55, 2026-07-23)
-
-Buckley writes for film, so every one of these six climbs 10–22 dB from its
-quiet opening to a full orchestral/percussive climax around the two-minute
-mark — the wrong shape for meditation, which wants no arc. Each file here is
-therefore a **trimmed loop**: cut to a window that ends at a loudness trough
-*before* the track's loudest section, then given a 1.5s fade in, a 4s fade
-out, and 2.5s of digital silence at the tail so a plain `<audio loop>`
-cycles it without a hard seam. Loop peaks sit 4–9 dB under each track's
-original climax.
-
-The edit is loudness-shaping only — no notes changed — so the CC BY 4.0
-credit above is unaffected. Windows, measured from the source RMS curve:
-
-| Track | Loop window | Kept |
-|---|---|---|
-| Penumbra | 0:00–1:28 | 90s |
-| Meanwhile | 0:00–2:17 | 139s |
-| Amberlight | 0:00–1:48 | 110s |
-| Echoes Of Home | 0:00–1:08 | 70s |
-| Born Of The Sky | 0:00–1:08 | 70s |
-| Convergence | 0:00–1:28 | 90s |
-
-To reshape a window later, re-cut from the source track on Buckley's site
-(the full versions are not kept in the repo) with:
-`ffmpeg -i SRC.mp3 -af "atrim=0:END,asetpts=N/SR/TB,afade=t=in:st=0:d=1.5,afade=t=out:st=END-4:d=4,apad=pad_dur=2.5" -c:a libmp3lame -q:a 2 OUT-loop.mp3`
-
-Rebuilding these dropped the set from 67 MB to 13 MB.
+| `yoga-restorative-penumbra.mp3` | Restorative / Yin / Savasana | https://www.scottbuckley.com.au/library/penumbra/ |
+| `yoga-restorative-meanwhile.mp3` | Restorative / Yin / Savasana | https://www.scottbuckley.com.au/library/meanwhile/ |
+| `yoga-flow-amberlight.mp3` | Slow Flow / Hatha | https://www.scottbuckley.com.au/library/amberlight/ |
+| `yoga-flow-echoes-of-home.mp3` | Slow Flow / Hatha | https://www.scottbuckley.com.au/library/echoes-of-home/ |
+| `yoga-vinyasa-born-of-the-sky.mp3` | Vinyasa / Active Flow | https://www.scottbuckley.com.au/library/born-of-the-sky/ |
+| `yoga-vinyasa-convergence.mp3` | Vinyasa / Active Flow | https://www.scottbuckley.com.au/library/convergence/ |
 
 ## Homemade slow-piano tracks (added 2026-07-22)
 
