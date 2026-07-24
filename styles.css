@@ -56,10 +56,15 @@ body {
    reset, and the reset snaps. Never scales below 1: the videos are
    object-fit: cover, so under 1 would expose the frame edges.
    Deliberately not synced to the breath pace — a zoom pulsing on the
-   inhale is something the eye locks onto. */
+   inhale is something the eye locks onto.
+   v48: was 8% over 90s, which works out to 0.09% per second — under the
+   threshold where the eye reads it as movement at all, so it looked like
+   nothing was happening. Now 16% over 55s (0.29%/s), roughly a 3x rate.
+   Held below ~1.2 because the clips are 720/1080p and every extra percent
+   is upscale softness on a desktop display. */
 
 body[data-motion="zoom"] #stage {
-  animation: kenburns 90s ease-in-out infinite alternate;
+  animation: kenburns 55s ease-in-out infinite alternate;
 }
 
 @keyframes kenburns {
@@ -67,7 +72,7 @@ body[data-motion="zoom"] #stage {
     transform: scale(1);
   }
   to {
-    transform: scale(1.08);
+    transform: scale(1.16);
   }
 }
 
@@ -359,18 +364,6 @@ body.at-home .scrim {
   margin: 18px auto 0;
 }
 
-/* Fixed rather than absolute so it stays put while the grid scrolls.
-   Inherits the home screen's own fade in/out, being a child of it. */
-.home-settings {
-  position: fixed;
-  z-index: 2;
-  top: calc(env(safe-area-inset-top) + 20px);
-  right: calc(env(safe-area-inset-right) + 20px);
-  padding: 8px 16px;
-  font-size: 12px;
-  letter-spacing: 0.06em;
-}
-
 /* ---------- Layout ---------- */
 
 #ui {
@@ -406,6 +399,19 @@ body.at-home .scrim {
    its own, and without this the only route home is via Sit again. */
 .state-browse .home-btn,
 .state-complete .home-btn {
+  visibility: visible;
+}
+
+/* Browse only, and hidden the same way as .home-btn so the header row keeps
+   its height in every state. Setup has its own Back and a full panel of its
+   own controls; a session should not be interrupted to change a preference. */
+.settings-btn {
+  padding: 8px 16px;
+  font-size: 13px;
+  visibility: hidden;
+}
+
+.state-browse .settings-btn {
   visibility: visible;
 }
 

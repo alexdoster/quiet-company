@@ -5,7 +5,7 @@
 // Bump alongside CACHE in sw.js on every deploy — this is the only
 // user-visible confirmation that a phone has picked up the latest build
 // (shown small, bottom-right, home screen only).
-const APP_VERSION = 47;
+const APP_VERSION = 48;
 
 // Scene labels are provisional placeholders — Alex finalizes the names.
 const SCENES = [
@@ -28,6 +28,7 @@ const SCENES = [
   // '57%' is the compromise that keeps the face safe and gives up the outer
   // hair wisps and part of the left hand, rather than losing the face.
   { id: 'river', label: 'Current', src: 'assets/video/river-rock-breathing-v1.mp4', card: 'assets/img/card-river.jpg', objectPosition: '57% top' },
+  { id: 'rooftop', label: 'Rooftop', src: 'assets/video/rooftop-city-breathing-v1.mp4', card: 'assets/img/card-rooftop.jpg' },
   { id: 'monk', label: 'Temple', src: 'assets/video/monk-temple-breathing-v1.mp4', card: 'assets/img/card-monk.jpg' },
   { id: 'yoga', label: 'Studio', src: 'assets/video/yoga-studio-breathing-v1.mp4', card: 'assets/img/card-yoga.jpg' },
   { id: 'elf', label: 'Forest', src: 'assets/video/elf-forest-breathing-v1.mp4', card: 'assets/img/card-elf.jpg' },
@@ -38,7 +39,6 @@ const SCENES = [
   // bottom (lap/ground) instead. No effect in portrait (crop goes sideways).
   { id: 'leopard', label: 'Leopard', src: 'assets/video/leopard-royalty-breathing-v1.mp4', card: 'assets/img/card-leopard.jpg', objectPosition: 'center top' },
   { id: 'photoreal', label: 'Sunlight', src: 'assets/video/photoreal-woman-breathing-v1.mp4', card: 'assets/img/card-photoreal.jpg', objectPosition: 'center top' },
-  { id: 'rooftop', label: 'Rooftop', src: 'assets/video/rooftop-city-breathing-v1.mp4', card: 'assets/img/card-rooftop.jpg' },
   // The only scene whose subject isn't centre-framed: it sits left of
   // centre with its head high in frame, so BOTH axes need anchoring.
   // '21%' handles portrait, where cover crops the sides — the head spans
@@ -251,6 +251,7 @@ const countdownSelect = $('#countdown-select');
 const countdownNoteEl = $('#countdown-note');
 const clockSelect = $('#clock-select');
 const motionSelect = $('#motion-select');
+const orderSelect = $('#order-select');
 const textStyleSelect = $('#textstyle-select');
 const bellsSelect = $('#bells-select');
 const prepSelect = $('#prep-select');
@@ -284,7 +285,12 @@ function setUIState(state) {
   uiState = state;
   ui.className = 'state-' + state;
   document.body.classList.toggle('at-home', state === 'home');
-  if (state === 'home') pauseAllVideos();
+  if (state === 'home') {
+    pauseAllVideos();
+    // The one moment the grid is off-screen and about to be shown again, so
+    // reordering here is the only point where nothing visibly jumps.
+    applyViewOrder();
+  }
   panels.browse.classList.toggle('visible', state === 'browse');
   panels.setup.classList.toggle('visible', state === 'setup');
   panels.session.classList.toggle(
@@ -310,6 +316,66 @@ let sceneIndex = Math.max(
   0,
   SCENES.findIndex((s) => s.id === store.get('scene', SCENES[0].id))
 );
+
+/* ---------- Display order (v48) ----------
+   SCENES stays the canonical array — every index, every stored scene id and
+   every lookup still refers to it, so nothing downstream has to know the grid
+   can be reordered. `viewOrder` is a separate list of SCENES indexes holding
+   the order things are actually SHOWN in, and the cards and dots are appended
+   in that order.
+
+   'recent' promotes scenes you have actually sat with, most recent first,
+   above the authored order — so the SCENES array is still the baseline for
+   everything unplayed rather than being replaced by a use-frequency list.
+   Only a started session counts; browsing past a scene does not, or the order
+   would churn from swiping alone.
+
+   Recomputed on entering home, never mid-browse: the carousel walks this same
+   list, and a grid that reshuffled under a live scene would move the dots
+   out from under a swipe in progress. */
+
+let sceneOrderMode = store.get('sceneOrderMode', 'recent');
+let recentScenes = store.get('recentScenes', []).filter(
+  (id) => SCENES.some((s) => s.id === id)
+);
+let viewOrder = SCENES.map((_, i) => i);
+const cards = new Map();
+const dots = new Map();
+
+function computeViewOrder() {
+  const authored = SCENES.map((_, i) => i);
+  if (sceneOrderMode !== 'recent' || !recentScenes.length) return authored;
+  const promoted = recentScenes
+    .map((id) => SCENES.findIndex((s) => s.id === id))
+    .filter((i) => i >= 0);
+  return [...promoted, ...authored.filter((i) => !promoted.includes(i))];
+}
+
+// Re-appending an existing element moves it; nothing is rebuilt, so no image
+// reloads and no listeners are re-bound.
+function applyViewOrder() {
+  viewOrder = computeViewOrder();
+  for (const i of viewOrder) {
+    const scene = SCENES[i];
+    cardGridEl.appendChild(cards.get(scene.id));
+    dotsEl.appendChild(dots.get(scene.id));
+  }
+  markSelectedDot();
+}
+
+function displayPos(index) {
+  const pos = viewOrder.indexOf(index);
+  return pos < 0 ? 0 : pos;
+}
+
+function sceneAtPos(pos) {
+  return viewOrder[(pos + viewOrder.length) % viewOrder.length];
+}
+
+function noteScenePlayed(id) {
+  recentScenes = [id, ...recentScenes.filter((x) => x !== id)].slice(0, 8);
+  store.set('recentScenes', recentScenes);
+}
 
 for (const scene of SCENES) {
   // The Words scene has no film, so it gets no entry here at all — its
@@ -338,6 +404,7 @@ for (const scene of SCENES) {
     setScene(SCENES.indexOf(scene), { animateName: true })
   );
   dotsEl.appendChild(dot);
+  dots.set(scene.id, dot);
 
   // Home-screen card: a still-image thumbnail, so the landing page costs
   // a few hundred KB of images total — video only loads for a tapped card.
@@ -366,7 +433,10 @@ for (const scene of SCENES) {
     setUIState('browse');
   });
   cardGridEl.appendChild(card);
+  cards.set(scene.id, card);
 }
+
+applyViewOrder();
 
 function pauseAllVideos() {
   for (const video of videos.values()) video.pause();
@@ -398,10 +468,13 @@ function setScene(index, { animateName = false } = {}) {
   // own value passes straight through.
   stage.style.transformOrigin = scene.objectPosition || 'center center';
 
-  // Active scene plus both neighbors, so a swipe lands on a warm video
+  // Active scene plus both neighbors, so a swipe lands on a warm video.
+  // Neighbours are the ones a swipe actually reaches — display order, not
+  // array order, or a reordered grid warms the wrong two files.
+  const pos = displayPos(sceneIndex);
   ensureVideoLoaded(sceneIndex);
-  ensureVideoLoaded(sceneIndex + 1);
-  ensureVideoLoaded(sceneIndex - 1);
+  ensureVideoLoaded(sceneAtPos(pos + 1));
+  ensureVideoLoaded(sceneAtPos(pos - 1));
 
   for (const [sceneId, video] of videos) {
     const on = sceneId === scene.id;
@@ -414,10 +487,7 @@ function setScene(index, { animateName = false } = {}) {
   }
   setTextSceneActive(scene.type === 'text');
 
-  Array.from(dotsEl.children).forEach((dot, i) => {
-    dot.classList.toggle('selected', i === sceneIndex);
-    dot.setAttribute('aria-selected', String(i === sceneIndex));
-  });
+  markSelectedDot();
 
   if (animateName) {
     sceneNameEl.classList.add('out');
@@ -430,8 +500,21 @@ function setScene(index, { animateName = false } = {}) {
   }
 }
 
+// Dots are addressed by scene id, not by position, so they stay correct
+// however the row has been reordered.
+function markSelectedDot() {
+  const active = SCENES[sceneIndex]?.id;
+  for (const [id, dot] of dots) {
+    const on = id === active;
+    dot.classList.toggle('selected', on);
+    dot.setAttribute('aria-selected', String(on));
+  }
+}
+
+// Steps through the row as drawn, so a swipe always lands on the neighbour
+// the dots say is next.
 function changeScene(step) {
-  setScene(sceneIndex + step, { animateName: true });
+  setScene(sceneAtPos(displayPos(sceneIndex) + step), { animateName: true });
 }
 
 function playActiveVideo() {
@@ -852,6 +935,9 @@ function startSession(choice) {
   lastMarkerMinute = 0;
   lastBellInterval = 0;
   pauseBtn.textContent = 'Pause';
+  // Recorded here rather than on Begin: sitting with a scene is what makes it
+  // recent, not opening its setup screen and backing out.
+  noteScenePlayed(SCENES[sceneIndex].id);
   setUIState('running');
   playActiveVideo();
   acquireWakeLock();
@@ -1224,6 +1310,7 @@ function applySettings() {
   clockSelect.value = clockPosition;
   document.body.dataset.motion = sceneMotion;
   motionSelect.value = sceneMotion;
+  orderSelect.value = sceneOrderMode;
   document.body.dataset.textstyle = textStyle;
   textStyleSelect.value = textStyle;
   bellsSelect.value = String(intervalBellMs / 60000);
@@ -1247,6 +1334,16 @@ motionSelect.addEventListener('change', () => {
   sceneMotion = motionSelect.value;
   store.set('sceneMotion', sceneMotion);
   applySettings();
+});
+
+orderSelect.addEventListener('change', () => {
+  sceneOrderMode = orderSelect.value;
+  store.set('sceneOrderMode', sceneOrderMode);
+  applySettings();
+  // The sheet opens over browse, where the dots are on screen — reordering
+  // them under an open sheet is the one case where the change is visible and
+  // still safe, since a swipe can't be in progress while a modal is up.
+  applyViewOrder();
 });
 
 textStyleSelect.addEventListener('change', () => {

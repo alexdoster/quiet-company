@@ -29,9 +29,6 @@
   <div class="scrim scrim-bottom" aria-hidden="true"></div>
 
   <section id="home" class="home" aria-label="Choose a scene">
-    <!-- Text label, not a gear icon: SVG icons failed to render on this
-         app twice in a row (v9/v10) for reasons never pinned down. -->
-    <button id="settings-open" class="pill subtle home-settings">Settings</button>
     <header class="home-header">
       <p class="home-eyebrow">A Meditation Timer</p>
       <h1 class="home-brand">Quiet Company</h1>
@@ -46,10 +43,17 @@
   <main id="ui" class="state-browse">
     <header class="top">
       <button id="to-home" class="pill subtle home-btn">&#8249; Scenes</button>
-      <!-- No mute button: music has its own off switch in the Sound
+      <!-- Settings lives here, not on the home grid (moved in v48): every
+           setting in the sheet changes how the SCENE looks — clock, motion,
+           countdown, words type — and this is the first screen where a scene
+           is actually playing, so a change is visible the moment it's made.
+           Text label, not a gear icon: SVG icons failed to render on this
+           app twice in a row (v9/v10) for reasons never pinned down.
+           No mute button: music has its own off switch in the Sound
            section, and the volume buttons silence everything else. NB the
            iOS silent switch is NOT the escape hatch here — it can stop
            Web Audio playing at all, which is a separate open question. -->
+      <button id="settings-open" class="pill subtle settings-btn">Settings</button>
     </header>
 
     <button id="nav-prev" class="nav-arrow prev" aria-label="Previous scene">&#8249;</button>
@@ -202,6 +206,15 @@
             <select id="motion-select">
               <option value="zoom">Slow zoom</option>
               <option value="still">Still</option>
+            </select>
+          </span>
+        </label>
+        <label class="group-row">
+          <span class="row-label">Scene order</span>
+          <span class="select-shell">
+            <select id="order-select">
+              <option value="recent">Recent first</option>
+              <option value="listed">As listed</option>
             </select>
           </span>
         </label>
