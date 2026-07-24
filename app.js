@@ -5,7 +5,7 @@
 // Bump alongside CACHE in sw.js on every deploy — this is the only
 // user-visible confirmation that a phone has picked up the latest build
 // (shown small, bottom-right, home screen only).
-const APP_VERSION = 51;
+const APP_VERSION = 52;
 
 // Scene labels are provisional placeholders — Alex finalizes the names.
 const SCENES = [
@@ -65,19 +65,28 @@ const GAGS = {
   hammock: { src: 'assets/video/monkey-briefcase-gag-v1.mp4', outro: 'hammock' },
 };
 
-// Secondary breathing loops per scene. During a running session, at each
-// elapsed-minute boundary, a scene with variants crossfades one in over
-// its default loop, holds it ~2 breath cycles, then crossfades back to
-// the default. Doubles as a subtle "you've hit a minute" marker for
-// anyone tracking time; invisible to anyone dropped in deep. Scenes with
-// no entry here (yoga, hearth) simply never pop in — accepted gap for
-// now, may rerun those stills to give them variants later.
+// Secondary breathing loops per scene. During a running session a scene
+// with variants crossfades one in over its default loop, holds it, then
+// crossfades back. Scenes with no entry here (yoga, hearth) never pop in.
+//
+// An entry is either a bare array (use the global cadence below) or an
+// object with its own `every` and `hold`, in seconds. Timings are per-scene
+// because how noticeable a switch is varies enormously, and it was measured
+// rather than guessed (2026-07-23, all pairs): comparing each variant's
+// temporal average against its default gives how different the two LOOK,
+// and their mean frame-to-frame change gives how differently they MOVE.
+//
+// Every look-delta came in under 0.5% of full scale — no pair shows a
+// visibly different picture, because they share a source still. So what
+// makes a switch noticeable here is the change in motion, not the image.
 const VARIANTS = {
   // Same source still as the default, so the pop-in has no visible seam
   // (frame 1 of the two takes differs by 0.49 of 255). The second take
   // moves the face ~34% more than the default does — same reasoning as
   // android below: the livelier take is the marker, not the resting state.
-  morning: ['assets/video/yoga-photoreal-breathing-v2.mp4'],
+  // Look 0.71, motion 1.09x — barely distinguishable, so it can come round
+  // faster than the old global minute without registering as an event.
+  morning: { every: 45, hold: 9, clips: ['assets/video/yoga-photoreal-breathing-v2.mp4'] },
   // Deliberately the reverse of the android/morning rule below. There the
   // quieter take is the default because the livelier one's extra motion was
   // *mouth* movement on a photoreal face. Here the extra motion is breath —
@@ -88,16 +97,35 @@ const VARIANTS = {
   // one is the marker. Both re-encoded independently, so their frame 1s sit
   // 1.94 of 255 apart — compression noise, and the pop-in crossfades over 2s
   // anyway, so it never resolves as a seam.
-  river: ['assets/video/river-rock-breathing-v2.mp4'],
-  monk: [
-    'assets/video/monk-temple-breathing-v2.mp4',
-    'assets/video/monk-temple-breathing-v3.mp4',
-  ],
-  elf: ['assets/video/elf-forest-breathing-v2.mp4'],
-  leopard: ['assets/video/leopard-royalty-breathing-v2.mp4'],
+  // Slowest in the roster despite the two takes having identical energy
+  // (1.03x). Its look-delta is the highest of any pair, 1.26, and that is
+  // the water: a 2s crossfade blends two uncorrelated sparkle patterns and
+  // ghosts. A busy background makes every switch messier regardless of how
+  // alike the takes are, so this one wants fewer of them, not more.
+  river: { every: 90, hold: 12, clips: ['assets/video/river-rock-breathing-v2.mp4'] },
+  // The one scene whose marker works as designed, and the only reason to
+  // keep a slow cadence anywhere: the picture barely changes (look 0.65 and
+  // 0.78) while motion nearly doubles (1.7x). You notice something happened
+  // without seeing a cut. Rare, and held long enough to read.
+  monk: {
+    every: 90,
+    hold: 12,
+    clips: [
+      'assets/video/monk-temple-breathing-v2.mp4',
+      'assets/video/monk-temple-breathing-v3.mp4',
+    ],
+  },
+  // Look 0.81, motion 0.75x. Its variant is CALMER than its default, so the
+  // marker reads as a settle rather than a lift — a weaker signal. Swapping
+  // default and variant would give it a real one; not done here.
+  elf: { every: 45, hold: 9, clips: ['assets/video/elf-forest-breathing-v2.mp4'] },
+  // Look 0.77, motion 0.78x — same calmer-variant note as elf above.
+  leopard: { every: 45, hold: 9, clips: ['assets/video/leopard-royalty-breathing-v2.mp4'] },
   // v1 (the default) holds the mouth still; v2 has mouth movement, so it
   // reads as a change when it pops in rather than as the resting state.
-  android: ['assets/video/android-room-breathing-v2.mp4'],
+  // Look 0.64 at 1.01x motion: the two takes carry identical energy, so the
+  // switch is as close to free as any in the roster. Fast cadence.
+  android: { every: 30, hold: 8, clips: ['assets/video/android-room-breathing-v2.mp4'] },
   // v3 became the default 2026-07-23 and the two older takes dropped to
   // markers, which is the android rule rather than the river one: v3 has the
   // most breath (chest 0.283 vs v1 0.181, v2 0.257) and the most hair (0.087
@@ -107,13 +135,21 @@ const VARIANTS = {
   // by mouth movement, so they read as a change when they pop in. All three
   // share the source still (frame 1 within 0.6 of 255), so the card needs no
   // regenerating and the pop-in has no seam.
-  photoreal: [
-    'assets/video/photoreal-woman-breathing-v1.mp4',
-    'assets/video/photoreal-woman-breathing-v2.mp4',
-  ],
-  rooftop: ['assets/video/rooftop-city-breathing-v2.mp4'],
+  // The most invisible switch measured (look 0.36 and 0.48), which is what
+  // earns the fastest cadence in the roster.
+  photoreal: {
+    every: 30,
+    hold: 8,
+    clips: [
+      'assets/video/photoreal-woman-breathing-v1.mp4',
+      'assets/video/photoreal-woman-breathing-v2.mp4',
+    ],
+  },
+  // Look 0.48, motion 0.88x — near-invisible, fast cadence.
+  rooftop: { every: 30, hold: 8, clips: ['assets/video/rooftop-city-breathing-v2.mp4'] },
 };
-const MARKER_INTERVAL_MS = 60000; // one pop-in per elapsed minute of session time
+// Fallbacks for any scene that doesn't set its own, above.
+const MARKER_INTERVAL_MS = 60000;
 const VARIANT_HOLD_MS = 10000; // ~2 breath loops on the variant before returning
 const VARIANT_FADE_MS = 2000; // must match the .variant-video CSS crossfade
 
@@ -681,14 +717,44 @@ function ensureVariantVideo() {
   stage.appendChild(variantVideo);
 }
 
+// Reads a VARIANTS entry in either form and fills in the global cadence for
+// anything it doesn't specify.
+function variantConfig(sceneId) {
+  const entry = VARIANTS[sceneId];
+  if (!entry) return null;
+  const clips = Array.isArray(entry) ? entry : entry.clips;
+  if (!clips || !clips.length) return null;
+  const every = Array.isArray(entry) ? 0 : entry.every * 1000;
+  const hold = Array.isArray(entry) ? 0 : entry.hold * 1000;
+  return {
+    clips,
+    interval: every || MARKER_INTERVAL_MS,
+    hold: hold || VARIANT_HOLD_MS,
+  };
+}
+
+// Never the same clip twice running. With a two-clip pool that's strict
+// alternation; with more it's a random pick from everything else. The old
+// plain random meant a 50% chance of a repeat at every marker, so the same
+// subtle motion pattern often played twice a minute apart and read as a
+// glitch rather than as variety — the switch these clips make is small
+// enough that repetition is the only thing about it you notice.
+let lastVariantSrc = null;
+function pickVariant(clips) {
+  const choices =
+    clips.length > 1 ? clips.filter((c) => c !== lastVariantSrc) : clips;
+  lastVariantSrc = choices[Math.floor(Math.random() * choices.length)];
+  return lastVariantSrc;
+}
+
 function fireVariant() {
-  const pool = VARIANTS[SCENES[sceneIndex].id];
-  if (!pool || !pool.length || variantActive || gagPlaying) return;
+  const cfg = variantConfig(SCENES[sceneIndex].id);
+  if (!cfg || variantActive || gagPlaying) return;
   clearTimeout(variantFadeTimer);
   ensureVariantVideo();
   variantActive = true;
   variantVideo.style.objectPosition = SCENES[sceneIndex].objectPosition || '';
-  variantVideo.src = pool[Math.floor(Math.random() * pool.length)];
+  variantVideo.src = pickVariant(cfg.clips);
   variantVideo.currentTime = 0;
   // Start the crossfade only once playback has actually begun, so a
   // cold-cache first play can't fade in on a black/unbuffered frame
@@ -698,7 +764,7 @@ function fireVariant() {
     () => {
       if (!variantActive) return;
       variantVideo.classList.add('active');
-      variantHoldTimer = setTimeout(endVariant, VARIANT_HOLD_MS);
+      variantHoldTimer = setTimeout(endVariant, cfg.hold);
     },
     cancelVariant
   );
@@ -944,14 +1010,19 @@ setInterval(() => {
 // stays aligned to real meditation minutes and naturally freezes while
 // paused. Skipped too close to the end of a fixed session, where the hold
 // would be cut off by completion; an open session has no such edge.
-let lastMarkerMinute = 0;
+// Counts the active scene's own interval, not minutes — hence the rename
+// from lastMarkerMinute. A scene can't change mid-session (swiping only
+// works while browsing), so the interval is fixed for the whole session and
+// there is nothing to re-baseline.
+let lastMarkerIndex = 0;
 function maybeFireMinuteMarker() {
-  const minute = Math.floor(timer.elapsedMs / MARKER_INTERVAL_MS);
-  if (minute <= lastMarkerMinute) return;
-  lastMarkerMinute = minute;
+  const cfg = variantConfig(SCENES[sceneIndex].id);
+  if (!cfg) return;
+  const n = Math.floor(timer.elapsedMs / cfg.interval);
+  if (n <= lastMarkerIndex) return;
+  lastMarkerIndex = n;
   const roomToFinish =
-    timer.openEnded ||
-    timer.remainingMs > VARIANT_HOLD_MS + VARIANT_FADE_MS * 2;
+    timer.openEnded || timer.remainingMs > cfg.hold + VARIANT_FADE_MS * 2;
   if (roomToFinish) fireVariant();
 }
 
@@ -998,7 +1069,8 @@ function startSession(choice) {
   timer.elapsedMs = 0;
   timer.endAt = 0;
   timer.startAt = 0;
-  lastMarkerMinute = 0;
+  lastMarkerIndex = 0;
+  lastVariantSrc = null;
   lastBellInterval = 0;
   pauseBtn.textContent = 'Pause';
   // Recorded here rather than on Begin: sitting with a scene is what makes it
