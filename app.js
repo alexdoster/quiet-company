@@ -5,7 +5,7 @@
 // Bump alongside CACHE in sw.js on every deploy — this is the only
 // user-visible confirmation that a phone has picked up the latest build
 // (shown small, bottom-right, home screen only).
-const APP_VERSION = 52;
+const APP_VERSION = 53;
 
 // Scene labels are provisional placeholders — Alex finalizes the names.
 const SCENES = [
@@ -48,7 +48,7 @@ const SCENES = [
   // the axis the other one fixes, so one pair covers both orientations.
   { id: 'android', label: 'Android', src: 'assets/video/android-room-breathing-v1.mp4', card: 'assets/img/card-android.jpg', objectPosition: '21% top' },
   // The one scene with no film in it: white type on black, rendered live
-  // from TEXT_SCRIPT below. No Midjourney still, no Kling clip, no card
+  // from TEXT_LINES below. No Midjourney still, no Kling clip, no card
   // thumbnail, nothing for the service worker to cache — it costs bytes
   // only in this file. See the Words section further down.
   { id: 'words', label: 'Words', type: 'text' },
@@ -193,30 +193,97 @@ const MUSIC = [
 const MUSIC_VOLUME = 0.55;
 
 /* ---------- Words scene script ----------
-   Twelve triads: a line on the inhale, a line on the exhale, then one held
-   line to rest on. Trimmed from Alex's 25-triad draft, keeping its arc
-   (arrive, anchor, soften, watch the mind, kindness inward, kindness
-   outward, stop striving, return) and cutting the word count per line —
-   a ten-word sentence at this type size is something you read instead of
-   something you breathe under.
+   Seventy-five standalone lines, written by Alex, played in a random order
+   rather than an authored one. This replaces the twelve inhale/exhale/focus
+   triads the scene shipped with in v34.
 
-   `core` marks the six that survive a session too short for all twelve;
-   they form a complete miniature of the same arc on their own. */
+   The structural consequence: nothing here is a breath cue, so no line
+   depends on the one before it, none of them opens and none of them closes.
+   That buys a session that's different every time, and it costs the arc the
+   triads had — see buildTextSchedule for what the schedule does instead. */
 
-const TEXT_SCRIPT = [
-  { inhale: 'Gathering awareness into the body.', exhale: 'Releasing the weight of the day.', focus: 'You have arrived.', core: true },
-  { inhale: 'Cool air at the tip of the nose.', exhale: 'Warm air leaving the lips.', focus: 'The breath is the anchor.', core: true },
-  { inhale: 'Softness into the chest.', exhale: 'Shoulders away from the ears.', focus: 'Relax your effort.' },
-  { inhale: 'The tide rises.', exhale: 'The tide recedes.', focus: 'You are the floor beneath.' },
-  { inhale: 'Fill completely.', exhale: 'Empty completely.', focus: 'Peace lives in the pause.' },
-  { inhale: 'Notice where the mind went.', exhale: 'Guide it back to the breath.', focus: 'Returning is the practice.', core: true },
-  { inhale: 'A moment begins.', exhale: 'A moment fades.', focus: 'Everything passes.' },
-  { inhale: 'I am aware of thinking.', exhale: 'I am not my thoughts.', focus: 'Let the clouds pass.' },
-  { inhale: 'Breathing kindness into your own heart.', exhale: 'Releasing judgment.', focus: 'May I be safe and at ease.', core: true },
-  { inhale: 'Breathing in awareness of others.', exhale: 'Breathing out warmth to all.', focus: 'May all find peace.' },
-  { inhale: 'No seeking.', exhale: 'No striving.', focus: 'You are already complete.', core: true },
-  { inhale: 'Filling with clarity.', exhale: 'Carrying peace back with you.', focus: 'Open your eyes slowly.', core: true },
+const TEXT_LINES = [
+  'Nothing needs to be fixed in this moment.',
+  'You are arrived in the present.',
+  'Awareness is the anchor.',
+  'Effortless resting.',
+  'Simple presence is enough.',
+  'The mind returns to its natural peace.',
+  'Ease lives in non-striving.',
+  'Thoughts are just waves; you are the ocean floor.',
+  'In stillness, peace resides.',
+  'Returning to presence is a gentle act.',
+  'Grounded, whole, and fully supported.',
+  'Outer noise leaves inner quiet untouched.',
+  'All things arise and pass away like clouds.',
+  'Experience flows through without clinging.',
+  'Observe thoughts pass without following them.',
+  'The quiet mind holds unlimited space.',
+  'This breath is the only moment.',
+  'Safety, peace, and ease are here.',
+  'Interconnectedness with all life.',
+  'Nothing is separate.',
+  'Simply being.',
+  'You are already complete.',
+  'Nature is inherently clear and calm.',
+  'Sanctuary is always accessible within.',
+  'Awareness remains steady and caring.',
+  'Notice where attention rests.',
+  'Nowhere else to be.',
+  'Presence is inherently open.',
+  'Support is present under every moment.',
+  'Softness is spaciousness.',
+  'You are the sky; everything else is weather.',
+  'Nothing to chase, nothing to run from.',
+  'Awareness is naturally clear and luminous.',
+  'No need to control what comes next.',
+  'Peace is available right now.',
+  'Kindness toward whatever arises.',
+  'The quiet space between thoughts.',
+  'Permission to simply exist.',
+  'Worth is independent of activity.',
+  'Resting in the quiet flow of now.',
+  'Releasing expectations of how this should feel.',
+  'Gentleness is an anchor for the mind.',
+  'Awareness bridges body and mind.',
+  'Allowing things to be exactly as they are.',
+  'Silence is spacious and full.',
+  'Watching thoughts without taking them personally.',
+  'Yesterday is already a memory.',
+  'Every moment is a fresh opening.',
+  'Spaciousness holds all sensations.',
+  'The mind can be as wide as the night sky.',
+  'Tranquility is a natural state.',
+  'Meeting what is, right now.',
+  'The ground of being is quiet and clear.',
+  'Trusting the natural flow.',
+  'Quiet settles naturally into consciousness.',
+  'Rest is always available.',
+  'Clarity sees things as they truly are.',
+  'Subtle presence behind all experience.',
+  'Releasing the narrative, staying with presence.',
+  'Peace begins in open awareness.',
+  'Allowing the moment to unfold.',
+  'Impermanence is the nature of all form.',
+  'The present moment welcomes you back.',
+  'Resting in quiet inner strength.',
+  'You are vast, far beyond thought.',
+  'The heart remains steady.',
+  'Awareness requires no effort.',
+  'Boundless space within.',
+  'Form arises and dissolves in silence.',
+  'No boundary between inside and outside.',
+  'Undisturbed by the movement of mind.',
+  'The mirror reflects without holding onto the image.',
+  'Quietude is always present beneath the noise.',
+  'Pure being, untouched by time.',
+  'Lightly resting in what is.',
 ];
+
+// The home card can't be random — it's the answer to "what is this scene",
+// and a grid that says something different every repaint reads as broken
+// rather than as varied. Fixed sample, chosen for stating the premise.
+const TEXT_CARD_SAMPLE = 'Simple presence is enough.';
 
 /* Pacing. Every line is read, then taken away, and the screen is empty for
    a beat before the next one arrives — the black between lines is part of
@@ -231,21 +298,24 @@ const LINE_HOLD_PER_CHAR_MS = 90;
 const LINE_HOLD_MIN_MS = 4500;
 const LINE_HOLD_MAX_MS = 9000;
 
-// Black between the lines within a triad. Fades eat ~1.2s of this, so it
-// wants to be comfortably longer than the pause is meant to feel.
-const LINE_REST_MS = 3500;
+// Black between lines, and the one elastic part of the whole schedule — a
+// longer session gets more quiet rather than faster text. Fades eat ~1.2s
+// of the minimum, so it wants to be comfortably longer than the pause is
+// meant to feel. The maximum is deliberately generous: a several-minute
+// silence inside a long sit is normal.
+//
+// The floor moved 3.5s → 7s with the flat script. The old 3.5s was the gap
+// *inside* a triad, where three lines were one thought and the short gap
+// was what grouped them; every line now stands alone and wants the longer
+// between-thoughts pause.
+const LINE_REST_MIN_MS = 7000;
+const LINE_REST_MAX_MS = 300000;
 
-// Black between triads: longer, to group each set of three, and the one
-// elastic part of the whole schedule — a longer session gets more quiet
-// rather than more text. The maximum is deliberately generous; a
-// several-minute silence inside a long sit is normal, and a tight cap made
-// an hour-long session finish the script at twelve minutes and then sit
-// black, having said "open your eyes slowly" three quarters of an hour
-// early.
-const TRIAD_REST_MIN_MS = 7000;
-const TRIAD_REST_MAX_MS = 300000;
-// Leave the last stretch of a fixed session wordless, so the closing line
-// lands before the end chime rather than on top of it.
+// An open session has no end to divide by, so its gap is chosen rather than
+// derived. Sits near the pace a 20-minute session settles on.
+const OPEN_REST_MS = 15000;
+// Leave the last stretch of a fixed session wordless, so the last line
+// lands clear of the end chime rather than on top of it.
 const TEXT_TAIL = 0.9;
 const TEXT_FADE_MS = 600; // must match the .text-line CSS transition
 
@@ -517,7 +587,7 @@ for (const scene of SCENES) {
     card.classList.add('card-words');
     const sample = document.createElement('span');
     sample.className = 'card-sample';
-    sample.textContent = TEXT_SCRIPT[0].focus;
+    sample.textContent = TEXT_CARD_SAMPLE;
     card.appendChild(sample);
   } else {
     const img = document.createElement('img');
@@ -839,54 +909,82 @@ function lineHoldMs(text) {
   );
 }
 
-// Everything in a triad except the elastic rest that follows it.
-function triadFixedMs(t) {
-  return (
-    lineHoldMs(t.inhale) +
-    lineHoldMs(t.exhale) +
-    lineHoldMs(t.focus) +
-    LINE_REST_MS * 2
-  );
+// Fisher-Yates over a copy. Shuffling per session rather than per line is
+// what keeps a sit from repeating a line before it has used the other 74.
+function shuffled(list) {
+  const out = [...list];
+  for (let i = out.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [out[i], out[j]] = [out[j], out[i]];
+  }
+  return out;
+}
+
+// Enough shuffled passes to outlast any session, with no line repeating
+// across the seam between two passes — a reshuffle can otherwise put the
+// same line either side of one gap, which is the only place in a random
+// order that reads as a bug rather than as chance.
+function drawLines(count) {
+  const out = [];
+  while (out.length < count) {
+    const pass = shuffled(TEXT_LINES);
+    if (out.length && pass[0] === out[out.length - 1]) {
+      [pass[0], pass[1]] = [pass[1], pass[0]];
+    }
+    out.push(...pass);
+  }
+  return out.slice(0, count);
 }
 
 // Fit the script to the session rather than the other way round. Reading
-// time is fixed, so the two things that can give are how many triads play
+// time is fixed, so the two things that can give are how many lines play
 // and how much black sits between them.
+//
+// A fixed session takes as many lines as fit at the minimum gap, capped at
+// one pass through the list, then spends everything left over on longer
+// gaps. So a short sit gets fewer lines, a long sit gets more quiet, and no
+// sit ever shows the same line twice — the flat script's version of the
+// rule the triads had, where a longer session bought more silence rather
+// than faster text.
 function buildTextSchedule(durationMs) {
   const open = !durationMs;
-  const budget = durationMs * TEXT_TAIL;
-  let script = TEXT_SCRIPT;
-  let rest = TRIAD_REST_MIN_MS;
+  let lines;
+  let rest;
 
-  if (!open) {
-    const fixed = (list) => list.reduce((sum, t) => sum + triadFixedMs(t), 0);
-    const fits = (list) => fixed(list) + list.length * TRIAD_REST_MIN_MS <= budget;
-    // Short session: fall back to the core spine, which is the same arc in
-    // miniature rather than the first half of the full one.
-    if (!fits(script)) script = TEXT_SCRIPT.filter((t) => t.core);
-    // Shorter still: drop from the end, but never the closing triad — a
-    // session that stops before "Open your eyes slowly" has no ending.
-    while (script.length > 1 && !fits(script)) {
-      script = [...script.slice(0, -2), script[script.length - 1]];
+  if (open) {
+    // The one place the no-repeat rule can't hold: an open session has no
+    // length to fit, so it has to keep going past the 75th line rather than
+    // sit black for however long is left — the failure v34 hit and fixed on
+    // the triads. Fixed pace, and enough passes to outlast anyone: 75 lines
+    // at ~22s each is ~28 minutes a pass.
+    rest = OPEN_REST_MS;
+    lines = drawLines(TEXT_LINES.length * 6);
+  } else {
+    const budget = durationMs * TEXT_TAIL;
+    const pool = drawLines(TEXT_LINES.length);
+    let spent = 0;
+    let n = 0;
+    while (n < pool.length && spent + lineHoldMs(pool[n]) + LINE_REST_MIN_MS <= budget) {
+      spent += lineHoldMs(pool[n]) + LINE_REST_MIN_MS;
+      n++;
     }
+    // At least one line however short the session — a Words scene that says
+    // nothing at all is the scene failing, not a short sit.
+    lines = pool.slice(0, Math.max(1, n));
+    const held = lines.reduce((sum, text) => sum + lineHoldMs(text), 0);
     rest = Math.min(
-      TRIAD_REST_MAX_MS,
-      Math.max(TRIAD_REST_MIN_MS, (budget - fixed(script)) / script.length)
+      LINE_REST_MAX_MS,
+      Math.max(LINE_REST_MIN_MS, (budget - held) / lines.length)
     );
   }
 
   const cues = [];
   let at = 0;
-  for (const triad of script) {
-    const lines = [triad.inhale, triad.exhale, triad.focus];
-    lines.forEach((text, i) => {
-      cues.push({ at, text });
-      at += lineHoldMs(text);
-      cues.push({ at, text: '' }); // the screen empties after every line
-      // Indexed, not compared by text: two identical lines in one triad
-      // would otherwise take the wrong branch.
-      at += i === lines.length - 1 ? rest : LINE_REST_MS;
-    });
+  for (const text of lines) {
+    cues.push({ at, text });
+    at += lineHoldMs(text);
+    cues.push({ at, text: '' }); // the screen empties after every line
+    at += rest;
   }
   return cues;
 }
