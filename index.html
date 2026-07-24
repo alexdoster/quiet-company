@@ -217,6 +217,18 @@
           </span>
         </label>
         <label class="group-row">
+          <span class="row-label">Breath pace</span>
+          <span class="select-shell">
+            <select id="pace-select">
+              <option value="4">4 seconds</option>
+              <option value="5">5 seconds</option>
+              <option value="6">6 seconds</option>
+              <option value="7">7 seconds</option>
+              <option value="8">8 seconds</option>
+            </select>
+          </span>
+        </label>
+        <label class="group-row">
           <span class="row-label">Scene order</span>
           <span class="select-shell">
             <select id="order-select">
@@ -274,16 +286,31 @@
            aria-label="Sound" hidden>
     <h2 class="sheet-title">Sound</h2>
 
-    <!-- Music only. Chimes lost their switch in v41 (start and end are the
-         timer, not atmosphere), and interval bells aren't here because
-         #bells-select is a single element rather than a synced pair — making
-         it one is more regression surface than this sheet currently needs. -->
+    <!-- Music and interval bells — the two sounds you might want to change
+         mid-sit. Both are synced pairs with their setup-screen twins
+         (#s-music-select / #s-bells-select), kept in step by renderSound()
+         and applySettings(). The open/close chimes still have no switch
+         (v41): start and end are the timer, not atmosphere. -->
     <div class="sheet-scroll">
       <div class="group">
         <label class="group-row">
           <span class="row-label">Music</span>
           <span class="select-shell">
             <select id="s-music-select"></select>
+          </span>
+        </label>
+        <label class="group-row">
+          <span class="row-label">Interval bells</span>
+          <span class="select-shell">
+            <select id="s-bells-select">
+              <option value="0">Off</option>
+              <option value="1">Every minute</option>
+              <option value="2">Every 2 minutes</option>
+              <option value="3">Every 3 minutes</option>
+              <option value="5">Every 5 minutes</option>
+              <option value="10">Every 10 minutes</option>
+              <option value="15">Every 15 minutes</option>
+            </select>
           </span>
         </label>
       </div>

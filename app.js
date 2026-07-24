@@ -5,7 +5,7 @@
 // Bump alongside CACHE in sw.js on every deploy — this is the only
 // user-visible confirmation that a phone has picked up the latest build
 // (shown small, bottom-right, home screen only).
-const APP_VERSION = 56;
+const APP_VERSION = 57;
 
 // Scene labels are provisional placeholders — Alex finalizes the names.
 const SCENES = [
@@ -319,7 +319,7 @@ const TEXT_CARD_SAMPLE = 'Simple presence is enough.';
 const LINE_HOLD_BASE_MS = 4000;
 const LINE_HOLD_PER_CHAR_MS = 90;
 const LINE_HOLD_MIN_MS = 4500;
-const LINE_HOLD_MAX_MS = 9000;
+const LINE_HOLD_MAX_MS = 6000;
 
 // Black between lines, and the one elastic part of the whole schedule — a
 // longer session gets more quiet rather than faster text. Fades eat ~1.2s
@@ -396,9 +396,12 @@ const clockSelect = $('#clock-select');
 const motionSelect = $('#motion-select');
 const orderSelect = $('#order-select');
 const textStyleSelect = $('#textstyle-select');
-const bellsSelect = $('#bells-select');
+// A synced pair like musicSelects: the setup-screen select and its twin in
+// the mid-session Sound sheet, kept in step so either can set the interval.
+const bellsSelects = [$('#bells-select'), $('#s-bells-select')];
 const prepSelect = $('#prep-select');
 const chimeSelect = $('#chime-select');
+const paceSelect = $('#pace-select');
 
 /* ---------- Persistence ---------- */
 
@@ -637,6 +640,20 @@ function pauseAllVideos() {
   for (const video of videos.values()) video.pause();
 }
 
+// Breath pace. Every breathing clip is one breath in 5s, so playbackRate is
+// 5 / chosen length: below 1 slows the breath, above 1 speeds it up. Applied
+// at play() (below) because setting a video's src resets playbackRate to its
+// default, so the create-time value wouldn't survive the lazy load. Base
+// scene loops only — variant pop-ins run on wall-clock timers and keep their
+// own pace, which is the small drift already flagged.
+function breathRate() {
+  return 5 / breathPace;
+}
+
+function applyBreathPace() {
+  for (const video of videos.values()) video.playbackRate = breathRate();
+}
+
 function ensureVideoLoaded(index) {
   const scene = SCENES[(index + SCENES.length) % SCENES.length];
   const video = videos.get(scene.id);
@@ -675,6 +692,7 @@ function setScene(index, { animateName = false } = {}) {
     const on = sceneId === scene.id;
     video.classList.toggle('active', on);
     if (on) {
+      video.playbackRate = breathRate();
       video.play().catch(() => {});
     } else {
       video.pause();
@@ -713,7 +731,10 @@ function changeScene(step) {
 }
 
 function playActiveVideo() {
-  videos.get(SCENES[sceneIndex].id)?.play()?.catch(() => {});
+  const video = videos.get(SCENES[sceneIndex].id);
+  if (!video) return;
+  video.playbackRate = breathRate();
+  video.play()?.catch(() => {});
 }
 
 /* ---------- Gag playback (Portals-App prototype) ----------
@@ -1560,6 +1581,7 @@ let sceneMotion = store.get(
   matchMedia('(prefers-reduced-motion: reduce)').matches ? 'still' : 'zoom'
 );
 let textStyle = store.get('textStyle', 'sans');
+let breathPace = store.get('breathPaceSeconds', 5);
 let intervalBellMs = store.get('intervalBellMinutes', 0) * 60000;
 let prepSeconds = store.get('prepSeconds', 0);
 let chimeVoice = store.get('chimeVoice', 'bell');
@@ -1577,9 +1599,11 @@ function applySettings() {
   orderSelect.value = sceneOrderMode;
   document.body.dataset.textstyle = textStyle;
   textStyleSelect.value = textStyle;
-  bellsSelect.value = String(intervalBellMs / 60000);
+  for (const s of bellsSelects) s.value = String(intervalBellMs / 60000);
   prepSelect.value = String(prepSeconds);
   chimeSelect.value = chimeVoice;
+  paceSelect.value = String(breathPace);
+  applyBreathPace();
 }
 
 countdownSelect.addEventListener('change', () => {
@@ -1616,15 +1640,26 @@ textStyleSelect.addEventListener('change', () => {
   applySettings();
 });
 
-bellsSelect.addEventListener('change', () => {
-  const minutes = Number(bellsSelect.value) || 0;
-  intervalBellMs = minutes * 60000;
-  store.set('intervalBellMinutes', minutes);
-  // Re-baseline against elapsed time so switching mid-session doesn't
-  // immediately fire for every interval already behind us.
-  lastBellInterval = intervalBellMs
-    ? Math.floor(timer.elapsedMs / intervalBellMs)
-    : 0;
+for (const select of bellsSelects) {
+  select.addEventListener('change', () => {
+    const minutes = Number(select.value) || 0;
+    intervalBellMs = minutes * 60000;
+    store.set('intervalBellMinutes', minutes);
+    // Keep the pair in step so the other screen shows the same interval.
+    for (const s of bellsSelects) s.value = String(minutes);
+    // Re-baseline against elapsed time so switching mid-session doesn't
+    // immediately fire for every interval already behind us.
+    lastBellInterval = intervalBellMs
+      ? Math.floor(timer.elapsedMs / intervalBellMs)
+      : 0;
+  });
+}
+
+paceSelect.addEventListener('change', () => {
+  breathPace = Number(paceSelect.value) || 5;
+  store.set('breathPaceSeconds', breathPace);
+  // Live: updates the scene playing right now, not just the next one.
+  applyBreathPace();
 });
 
 chimeSelect.addEventListener('change', () => {
