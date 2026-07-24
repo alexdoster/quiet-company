@@ -5,7 +5,7 @@
 // Bump alongside CACHE in sw.js on every deploy — this is the only
 // user-visible confirmation that a phone has picked up the latest build
 // (shown small, bottom-right, home screen only).
-const APP_VERSION = 48;
+const APP_VERSION = 50;
 
 // Scene labels are provisional placeholders — Alex finalizes the names.
 const SCENES = [
@@ -38,7 +38,7 @@ const SCENES = [
   // viewport wider than the 16:9 clip — all the vertical crop goes to the
   // bottom (lap/ground) instead. No effect in portrait (crop goes sideways).
   { id: 'leopard', label: 'Leopard', src: 'assets/video/leopard-royalty-breathing-v1.mp4', card: 'assets/img/card-leopard.jpg', objectPosition: 'center top' },
-  { id: 'photoreal', label: 'Sunlight', src: 'assets/video/photoreal-woman-breathing-v1.mp4', card: 'assets/img/card-photoreal.jpg', objectPosition: 'center top' },
+  { id: 'photoreal', label: 'Sunlight', src: 'assets/video/photoreal-woman-breathing-v3.mp4', card: 'assets/img/card-photoreal.jpg', objectPosition: 'center top' },
   // The only scene whose subject isn't centre-framed: it sits left of
   // centre with its head high in frame, so BOTH axes need anchoring.
   // '21%' handles portrait, where cover crops the sides — the head spans
@@ -98,7 +98,19 @@ const VARIANTS = {
   // v1 (the default) holds the mouth still; v2 has mouth movement, so it
   // reads as a change when it pops in rather than as the resting state.
   android: ['assets/video/android-room-breathing-v2.mp4'],
-  photoreal: ['assets/video/photoreal-woman-breathing-v2.mp4'],
+  // v3 became the default 2026-07-23 and the two older takes dropped to
+  // markers, which is the android rule rather than the river one: v3 has the
+  // most breath (chest 0.283 vs v1 0.181, v2 0.257) and the most hair (0.087
+  // vs 0.065, 0.051) while having the LEAST mouth movement (0.154 vs 0.188,
+  // 0.186), against a 0.020 wall control. Livelier body, quieter face — the
+  // profile a resting state wants — which leaves the older pair distinguished
+  // by mouth movement, so they read as a change when they pop in. All three
+  // share the source still (frame 1 within 0.6 of 255), so the card needs no
+  // regenerating and the pop-in has no seam.
+  photoreal: [
+    'assets/video/photoreal-woman-breathing-v1.mp4',
+    'assets/video/photoreal-woman-breathing-v2.mp4',
+  ],
   rooftop: ['assets/video/rooftop-city-breathing-v2.mp4'],
 };
 const MARKER_INTERVAL_MS = 60000; // one pop-in per elapsed minute of session time
@@ -233,6 +245,8 @@ const countdownEl = $('#countdown');
 const pauseBtn = $('#pause');
 const gagBtn = $('#gag');
 const cardGridEl = $('#card-grid');
+const homeEl = $('#home');
+const headerEl = $('.home-header');
 const toHomeBtn = $('#to-home');
 const musicCreditEl = $('.music-credit');
 
@@ -354,14 +368,66 @@ function computeViewOrder() {
 // Re-appending an existing element moves it; nothing is rebuilt, so no image
 // reloads and no listeners are re-bound.
 function applyViewOrder() {
-  viewOrder = computeViewOrder();
+  const next = computeViewOrder();
+  const changed = next.join() !== viewOrder.join();
+  viewOrder = next;
   for (const i of viewOrder) {
     const scene = SCENES[i];
     cardGridEl.appendChild(cards.get(scene.id));
     dotsEl.appendChild(dots.get(scene.id));
   }
   markSelectedDot();
+  // Only when the order actually moved. Finishing a session from a card
+  // halfway down the grid used to return you to the same scroll offset with
+  // the rows rearranged underneath — including the scene you just sat with,
+  // now promoted to the top and off-screen above you. Landing at the top is
+  // the only offset that still means anything once the list has changed.
+  if (changed) resetHomeScroll();
 }
+
+function resetHomeScroll() {
+  homeEl.scrollTop = 0;
+  homeEl.classList.remove('condensed');
+}
+
+/* ---------- Condensing masthead ----------
+   The compact bar appears once the real one has scrolled out of the way,
+   measured off the header rather than a fixed pixel figure: the block is a
+   different height in portrait, landscape and on desktop, and a hardcoded
+   threshold would trip early on one of them.
+
+   Two thresholds, not one. On a single threshold the bar's own presence has
+   no effect on scrollTop, so it wouldn't strictly flicker — but a finger
+   resting exactly on the line still toggles it on every pixel of jitter. The
+   24px gap makes that impossible. */
+
+let condenseQueued = false;
+
+function updateCondensed() {
+  const y = homeEl.scrollTop;
+  const trip = Math.max(48, headerEl.offsetHeight - 56);
+  const on = homeEl.classList.contains('condensed');
+  if (!on && y > trip) homeEl.classList.add('condensed');
+  else if (on && y < trip - 24) homeEl.classList.remove('condensed');
+}
+
+homeEl.addEventListener(
+  'scroll',
+  () => {
+    // Coalesced to one read per frame: scroll fires far faster than paint,
+    // and offsetHeight is a layout read.
+    if (condenseQueued) return;
+    condenseQueued = true;
+    requestAnimationFrame(() => {
+      condenseQueued = false;
+      updateCondensed();
+    });
+  },
+  { passive: true }
+);
+
+// The header is a different height after a rotate, so the threshold moves.
+addEventListener('resize', updateCondensed, { passive: true });
 
 function displayPos(index) {
   const pos = viewOrder.indexOf(index);

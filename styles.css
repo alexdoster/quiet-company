@@ -255,6 +255,52 @@ body.at-home .scrim {
   max-width: 1100px;
 }
 
+/* Condensing masthead (v49): the full three-line block scrolls away like any
+   other content, and this compact bar fades in once it has gone, keeping the
+   name on screen for the whole scroll at ~50px instead of ~130px.
+
+   A swap rather than a shrink, on purpose. Collapsing the header in place —
+   the obvious implementation — removes ~85px of in-flow height at the moment
+   the threshold trips, which yanks the whole grid up under the thumb that's
+   scrolling it. This bar is `position: fixed`, so it is not in the scroll
+   flow at all and the grid never moves: the only thing that animates is
+   opacity. (Fixed, not sticky, for the same reason the old Settings button
+   was: .home is itself a fixed, full-viewport box, so the two coincide.)
+
+   Cards pass underneath, hence the gradient fill rather than a flat bar —
+   a hard bottom edge over moving thumbnails reads as a seam. */
+.home-bar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 3;
+  padding: calc(env(safe-area-inset-top) + 14px) 24px 20px;
+  text-align: center;
+  font-family: var(--serif);
+  font-size: 19px;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  color: var(--ink);
+  background: linear-gradient(
+    to bottom,
+    #151d27 0%,
+    #141b24 55%,
+    rgba(13, 17, 22, 0.86) 78%,
+    rgba(13, 17, 22, 0) 100%
+  );
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity 0.3s var(--ease), visibility 0s linear 0.3s;
+}
+
+.home.condensed .home-bar {
+  opacity: 1;
+  visibility: visible;
+  transition: opacity 0.3s var(--ease);
+}
+
 .home-eyebrow {
   margin: 0 0 12px;
   font-size: 12px;
@@ -278,6 +324,38 @@ body.at-home .scrim {
   font-size: 15px;
   font-weight: 300;
   color: var(--ink-dim);
+}
+
+/* Landscape phones open with the header eating 51% of a 390px-tall viewport
+   and not one card fully visible — condensing on scroll doesn't help a screen
+   you haven't scrolled yet. The eyebrow goes (the category line is the most
+   expendable of the three) and the rest tightens, which puts a full card row
+   above the fold at rest. */
+@media (max-height: 520px) and (orientation: landscape) {
+  .home {
+    padding-top: calc(env(safe-area-inset-top) + 16px);
+  }
+
+  .home-header {
+    margin: 0 auto 20px;
+  }
+
+  .home-eyebrow {
+    display: none;
+  }
+
+  .home-brand {
+    font-size: 26px;
+  }
+
+  .home-tagline {
+    font-size: 13px;
+  }
+
+  .home-bar {
+    padding: calc(env(safe-area-inset-top) + 10px) 24px 16px;
+    font-size: 17px;
+  }
 }
 
 .card-grid {
@@ -1197,7 +1275,8 @@ body[data-clock="topright"] #session {
   .home,
   .card,
   .sheet,
-  .sheet-backdrop {
+  .sheet-backdrop,
+  .home-bar {
     transition: none;
   }
 
