@@ -5,7 +5,7 @@
 // Bump alongside CACHE in sw.js on every deploy — this is the only
 // user-visible confirmation that a phone has picked up the latest build
 // (shown small, bottom-right, home screen only).
-const APP_VERSION = 59;
+const APP_VERSION = 60;
 
 // Scene labels are provisional placeholders — Alex finalizes the names.
 const SCENES = [
@@ -170,24 +170,24 @@ const MUSIC = [
     id: 'restorative',
     label: 'Restorative',
     tracks: [
-      { label: 'Penumbra', src: 'assets/audio/yoga-restorative-penumbra.mp3' },
-      { label: 'Meanwhile', src: 'assets/audio/yoga-restorative-meanwhile.mp3' },
+      { label: 'Penumbra', src: 'assets/audio/yoga-restorative-penumbra.m4a' },
+      { label: 'Meanwhile', src: 'assets/audio/yoga-restorative-meanwhile.m4a' },
     ],
   },
   {
     id: 'flow',
     label: 'Flow',
     tracks: [
-      { label: 'Amberlight', src: 'assets/audio/yoga-flow-amberlight.mp3' },
-      { label: 'Echoes Of Home', src: 'assets/audio/yoga-flow-echoes-of-home.mp3' },
+      { label: 'Amberlight', src: 'assets/audio/yoga-flow-amberlight.m4a' },
+      { label: 'Echoes Of Home', src: 'assets/audio/yoga-flow-echoes-of-home.m4a' },
     ],
   },
   {
     id: 'vinyasa',
     label: 'Vinyasa',
     tracks: [
-      { label: 'Born Of The Sky', src: 'assets/audio/yoga-vinyasa-born-of-the-sky.mp3' },
-      { label: 'Convergence', src: 'assets/audio/yoga-vinyasa-convergence.mp3' },
+      { label: 'Born Of The Sky', src: 'assets/audio/yoga-vinyasa-born-of-the-sky.m4a' },
+      { label: 'Convergence', src: 'assets/audio/yoga-vinyasa-convergence.m4a' },
     ],
   },
 ];

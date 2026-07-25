@@ -1,33 +1,26 @@
 # Audio credits
 
-## Ambient beds — NOT CURRENTLY USED (as of v40, 2026-07-22)
+## Ambient beds — DELETED 2026-07-25
 
-The separate ambience layer was removed from the app: only 3 of 12 scenes
-ever got a bed, so the control was invisible most of the time, and Alex's
-call is that any ambient texture added back later becomes an entry in the
-Music section rather than its own mechanism. These four files are kept
-because they are exactly that candidate material, but nothing references
-them — no code, no service-worker precache. Delete them if the plan
-changes.
+The four CC0 ambience files (`temple-bowl`, `horizon-waves`,
+`hammock-cicadas`, `hammock-campfire`, ~14 MB total) were removed. The
+ambience layer itself went in v40; the Hammock and Horizon scenes went in
+v59; and the App Store decision makes bundle size real, so the "keep them
+as candidate material" note that used to live here no longer paid for
+itself. Nothing referenced them — no code, no service-worker precache.
 
-All tracks from [BigSoundBank](https://bigsoundbank.com) (Joseph Sardin),
-licensed [CC0](https://creativecommons.org/publicdomain/zero/1.0/) —
-public domain, no attribution required. Credited here anyway as good
-practice and so the source is traceable if a track ever gets swapped.
+All four were from [BigSoundBank](https://bigsoundbank.com) (Joseph
+Sardin), [CC0](https://creativecommons.org/publicdomain/zero/1.0/) —
+public domain, **no attribution was ever required**, so nothing is owed by
+removing them. Recoverable from git history, and the sources were:
+tibetan-bowl-singing (detail-1109), sea-waves (sound-0698), cicadas
+(sound-3002), big-branching-fire-3 (s0989).
 
-| File | Source |
-|---|---|
-| `temple-bowl.mp3` | https://bigsoundbank.com/detail-1109-tibetan-bowl-singing.html |
-| `horizon-waves.mp3` | https://bigsoundbank.com/sound-0698-sea-waves.html |
-| `hammock-cicadas.mp3` | https://bigsoundbank.com/sound-3002-cicadas.html |
-| `hammock-campfire.mp3` | https://bigsoundbank.com/big-branching-fire-3-s0989.html |
-
-None are natural seamless loops (real-world recordings, not designed for
-looping). The app used to solve that at playback time by crossfading
-overlapping copies of each clip (`AmbienceEngine`); that code went with
-the feature. **If any of these come back as Music entries they will play
-through a plain `<audio loop>` and audibly cut at the seam** — the
-crossfade technique is written up in `Quiet Company/CLAUDE.md` if it ever
+If ambient texture ever comes back it becomes an entry in the Music
+section rather than its own mechanism (Alex's call). Note that real-world
+recordings are not natural seamless loops — through a plain
+`<audio loop>` they audibly cut at the seam. The old crossfade technique
+(`AmbienceEngine`) is written up in `Quiet Company/CLAUDE.md` if it ever
 needs rebuilding.
 
 ## Yoga soundtrack (added 2026-07-15)
@@ -50,12 +43,12 @@ imitate.
 
 | File | Category | Source |
 |---|---|---|
-| `yoga-restorative-penumbra.mp3` | Restorative / Yin / Savasana | https://www.scottbuckley.com.au/library/penumbra/ |
-| `yoga-restorative-meanwhile.mp3` | Restorative / Yin / Savasana | https://www.scottbuckley.com.au/library/meanwhile/ |
-| `yoga-flow-amberlight.mp3` | Slow Flow / Hatha | https://www.scottbuckley.com.au/library/amberlight/ |
-| `yoga-flow-echoes-of-home.mp3` | Slow Flow / Hatha | https://www.scottbuckley.com.au/library/echoes-of-home/ |
-| `yoga-vinyasa-born-of-the-sky.mp3` | Vinyasa / Active Flow | https://www.scottbuckley.com.au/library/born-of-the-sky/ |
-| `yoga-vinyasa-convergence.mp3` | Vinyasa / Active Flow | https://www.scottbuckley.com.au/library/convergence/ |
+| `yoga-restorative-penumbra.m4a` | Restorative / Yin / Savasana | https://www.scottbuckley.com.au/library/penumbra/ |
+| `yoga-restorative-meanwhile.m4a` | Restorative / Yin / Savasana | https://www.scottbuckley.com.au/library/meanwhile/ |
+| `yoga-flow-amberlight.m4a` | Slow Flow / Hatha | https://www.scottbuckley.com.au/library/amberlight/ |
+| `yoga-flow-echoes-of-home.m4a` | Slow Flow / Hatha | https://www.scottbuckley.com.au/library/echoes-of-home/ |
+| `yoga-vinyasa-born-of-the-sky.m4a` | Vinyasa / Active Flow | https://www.scottbuckley.com.au/library/born-of-the-sky/ |
+| `yoga-vinyasa-convergence.m4a` | Vinyasa / Active Flow | https://www.scottbuckley.com.au/library/convergence/ |
 
 ## Homemade slow-piano tracks (added 2026-07-22)
 
@@ -82,6 +75,11 @@ recorded before one does, not after.
 Unlike the ambient beds above, these are full compositions with real
 musical structure, not loop-scheduled texture — played as whole tracks
 via a plain `<audio loop>` element, not `AmbienceEngine`. Not precached
-by the service worker (67MB across all six at 320kbps is too much to
-force onto every install) — cached automatically on first play instead,
-same as everything else the fetch handler sees.
+by the service worker — cached automatically on first play instead, same
+as everything else the fetch handler sees.
+
+**Re-encoded 2026-07-25 (v60): 320 kbps MP3 → 128 kbps AAC (`.m4a`),
+67 MB → 27 MB** across all six, for the App Store bundle. A/B'd on
+`penumbra` (the longest and most dynamic) before committing. These are
+placeholders regardless — Alex is producing his own tracks to replace
+them, at which point this whole section goes.
