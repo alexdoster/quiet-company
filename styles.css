@@ -50,7 +50,7 @@ body {
 }
 
 /* Ken Burns drift. On #stage rather than .scene-video so every layer —
-   base loop, gag, variant — shares one transform: a variant crossfading
+   base loop and variant — shares one transform: a variant crossfading
    in at scale 1 over a base at 1.08 would read as a jump cut.
    `alternate` rather than a one-way loop because a one-way zoom has to
    reset, and the reset snaps. Never scales below 1: the videos are
@@ -738,26 +738,6 @@ body.at-home .scrim {
   min-width: 200px;
   padding: 15px 30px;
   font-size: 16px;
-}
-
-/* Portals-App gag prototype trigger — lives on the session screen and,
-   unlike the other controls, stays faintly pressable while the UI rests
-   (same glance-level treatment as the dimmed countdown). */
-
-.gag-btn {
-  display: block;
-  margin: 14px auto 0;
-  padding: 8px 18px;
-  font-size: 13px;
-  transition: opacity 0.9s var(--ease);
-}
-
-.gag-btn.hidden {
-  display: none;
-}
-
-.resting .gag-btn {
-  opacity: 0.28;
 }
 
 /* ---------- Setup panel ---------- */

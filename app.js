@@ -5,7 +5,7 @@
 // Bump alongside CACHE in sw.js on every deploy — this is the only
 // user-visible confirmation that a phone has picked up the latest build
 // (shown small, bottom-right, home screen only).
-const APP_VERSION = 58;
+const APP_VERSION = 59;
 
 // Scene labels are provisional placeholders — Alex finalizes the names.
 const SCENES = [
@@ -52,18 +52,7 @@ const SCENES = [
   // thumbnail, nothing for the service worker to cache — it costs bytes
   // only in this file. See the Words section further down.
   { id: 'words', label: 'Words', type: 'text' },
-  // On loan from Portals-App for desk-companion testing + live Portals demo — pinned to bottom
-  { id: 'hammock', label: 'Hammock', src: 'assets/video/hammock-sleep-v1.mp4', card: 'assets/img/card-hammock.jpg' },
-  { id: 'horizon', label: 'Horizon', src: 'assets/video/horizon-gaze-v1.mp4', card: 'assets/img/card-horizon.jpg' },
 ];
-
-// Portals-App gag prototype (button-triggered, running sessions only): the
-// gag clip crossfades in over the scene's loop, plays once, and fades back
-// out to its outro scene — the loop keeps running underneath the whole time.
-// On loan like the Hammock/Horizon scenes themselves; may be removed.
-const GAGS = {
-  hammock: { src: 'assets/video/monkey-briefcase-gag-v1.mp4', outro: 'hammock' },
-};
 
 // Secondary breathing loops per scene. During a running session a scene
 // with variants crossfades one in over its default loop, holds it, then
@@ -368,7 +357,6 @@ const minutesSelect = $('#minutes-select');
 const openToggle = $('#open-toggle');
 const countdownEl = $('#countdown');
 const pauseBtn = $('#pause');
-const gagBtn = $('#gag');
 const cardGridEl = $('#card-grid');
 const homeEl = $('#home');
 const headerEl = $('.home-header');
@@ -441,13 +429,11 @@ function setUIState(state) {
   );
   panels.complete.classList.toggle('visible', state === 'complete');
   if (state !== 'running') {
-    cancelGag();
     cancelVariant();
   }
-  // Unlike the gag and variant overlays, the Words script survives a pause —
-  // it's the scene itself, not something playing over it.
+  // Unlike the variant overlay, the Words script survives a pause — it's the
+  // scene itself, not something playing over it.
   if (state !== 'running' && state !== 'paused') stopTextScript();
-  renderGagButton();
   scheduleRest();
 }
 
@@ -664,9 +650,7 @@ function setScene(index, { animateName = false } = {}) {
   sceneIndex = (index + SCENES.length) % SCENES.length;
   const scene = SCENES[sceneIndex];
   store.set('scene', scene.id);
-  cancelGag();
   cancelVariant();
-  renderGagButton();
 
   // Push the Ken Burns zoom INTO the scene's crop anchor rather than away
   // from it. A default centre-origin scale crops evenly on all four sides,
@@ -733,81 +717,12 @@ function playActiveVideo() {
   video.play()?.catch(() => {});
 }
 
-/* ---------- Gag playback (Portals-App prototype) ----------
-   The scene's loop is never paused — the gag rides on top as one more
-   .scene-video element, so the existing 1.2s opacity crossfade handles
-   both the fade-in and the fade-back-out for free. */
-
-let gagVideo = null;
-let gagPlaying = false;
-
-function ensureGagVideo() {
-  if (gagVideo) return;
-  gagVideo = document.createElement('video');
-  gagVideo.muted = true;
-  gagVideo.playsInline = true;
-  gagVideo.setAttribute('playsinline', '');
-  gagVideo.preload = 'auto';
-  gagVideo.className = 'scene-video'; // appended last, so it sits on top
-  gagVideo.addEventListener('ended', endGag);
-  gagVideo.addEventListener('error', cancelGag);
-  stage.appendChild(gagVideo);
-}
-
-// Show the button only where a gag exists; warm the clip so the press
-// doesn't open on a still-buffering black frame.
-function renderGagButton() {
-  const gag = uiState === 'running' && !gagPlaying && GAGS[SCENES[sceneIndex].id];
-  gagBtn.classList.toggle('hidden', !gag);
-  if (gag) {
-    ensureGagVideo();
-    if (gagVideo.src !== new URL(gag.src, location.href).href) {
-      gagVideo.src = gag.src;
-    }
-  }
-}
-
-function playGag() {
-  const gag = GAGS[SCENES[sceneIndex].id];
-  if (!gag || gagPlaying) return;
-  gagPlaying = true;
-  renderGagButton();
-  ensureGagVideo();
-  gagVideo.currentTime = 0;
-  gagVideo.play().catch(cancelGag);
-  gagVideo.classList.add('active');
-}
-
-// Natural end: fade out to the gag's designated outro scene (which may be
-// the scene it interrupted — for the monkey, the sleeper never woke).
-function endGag() {
-  const gag = GAGS[SCENES[sceneIndex].id];
-  gagPlaying = false;
-  gagVideo.classList.remove('active');
-  const outroIndex = gag ? SCENES.findIndex((s) => s.id === gag.outro) : -1;
-  if (outroIndex >= 0 && outroIndex !== sceneIndex) {
-    setScene(outroIndex, { animateName: true });
-  }
-  renderGagButton();
-}
-
-// Interruption (scene swipe, leaving browse, playback error): just drop
-// the overlay, no outro logic.
-function cancelGag() {
-  if (!gagVideo) return;
-  gagPlaying = false;
-  gagVideo.classList.remove('active');
-  gagVideo.pause();
-}
-
 /* ---------- Variant pop-in (minute marker) ----------
-   Same overlay trick as the gag: the default loop is never paused — the
-   variant rides on top as one more .scene-video and crossfades in/out,
-   so the default is always the home base returned to. The variant loops
-   for its hold rather than playing once, and a timer (not an 'ended'
-   event) triggers the return; no outro scene change. Uses a 2s crossfade
-   (.variant-video) rather than the gag's 1.2s, for a gentler in-session
-   transition. */
+   The default loop is never paused — the variant rides on top as one more
+   .scene-video and crossfades in/out, so the default is always the home base
+   returned to. The variant loops for its hold rather than playing once, and a
+   timer (not an 'ended' event) triggers the return; no outro scene change.
+   Uses a 2s crossfade (.variant-video) for a gentle in-session transition. */
 
 let variantVideo = null;
 let variantActive = false;
@@ -859,7 +774,7 @@ function pickVariant(clips) {
 
 function fireVariant() {
   const cfg = variantConfig(SCENES[sceneIndex].id);
-  if (!cfg || variantActive || gagPlaying) return;
+  if (!cfg || variantActive) return;
   clearTimeout(variantFadeTimer);
   ensureVariantVideo();
   variantActive = true;
@@ -1069,9 +984,7 @@ function advanceTextScript() {
 let swipeStart = null;
 
 window.addEventListener('pointerdown', (event) => {
-  // The gag trigger deliberately doesn't wake the resting UI — the scene
-  // should stay uncluttered while the interruption plays out.
-  if (!event.target.closest('.gag-btn')) wake();
+  wake();
   if (uiState === 'browse' && !openSheet && !event.target.closest('button')) {
     swipeStart = { x: event.clientX, y: event.clientY };
   }
@@ -1743,8 +1656,6 @@ $('#back').addEventListener('click', () => setUIState('browse'));
 
 toHomeBtn.addEventListener('click', () => setUIState('home'));
 
-gagBtn.addEventListener('click', playGag);
-
 $('#begin').addEventListener('click', () => {
   unlockAudio();
   startSession(openEnded ? 'open' : sessionMinutes);
@@ -1775,7 +1686,6 @@ function releaseWakeLock() {
 document.addEventListener('visibilitychange', () => {
   if (document.visibilityState !== 'visible') return;
   if (uiState !== 'home') playActiveVideo();
-  if (gagPlaying) gagVideo.play().catch(cancelGag);
   if (uiState === 'running') {
     acquireWakeLock();
     if (timer.prepEndAt) return; // the tick owns the settle window
